@@ -51,22 +51,47 @@ const s16: array<vec2<f32>, 16> = array<vec2<f32>, 16>(vec2<f32>(0.5625, 0.4375)
 @group(0) @binding(1) var<uniform> camera: Camera;
 
 
-
+fn generatePinholeRay(pixel: vec2<f32>) -> Ray {
+    var tan_half_angle: f32 = tan(camera.fov_angle / 2.0);
+    var aspect_scale: f32;
+    if (camera.fov_direction == 0u) {
+        aspect_scale = camera.image_size.x;
+    } else {
+        aspect_scale = camera.image_size.y;
+    }
+    // var direction: vec3<f32> = normalize(vec3<f32>( vec2<f32>(pixel.x, -pixel.y), -1.0));
+    var direction: vec3<f32> = normalize(vec3<f32>( vec2<f32>(pixel.x, -pixel.y) * tan_half_angle / aspect_scale, -1.0));
+    
+    var ray: Ray;
+    ray.pos = vec3<f32>(0.0, 0.0, 0.0);
+    ray.dir = direction;
+    ray.min = 0.0;
+    ray.max = INFINITY;
+    return ray;
+}
 
 @compute @workgroup_size(1,1,1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let screen_pos: vec2<u32> = vec2<u32>(u32(global_id.x), u32(global_id.y));
-    let uv: vec2<f32> = vec2<f32>(f32(screen_pos.x) / f32(camera.image_size.x), 1.0 - (f32(screen_pos.y) / f32(camera.image_size.y)));
+    let pixel: vec2<f32> = vec2<f32>(f32(screen_pos.x), f32(screen_pos.y)) * 2.0 - camera.image_size;
+    // let uv: vec2<f32> = vec2<f32>(f32(screen_pos.x) / f32(camera.image_size.x), 1.0 - (f32(screen_pos.y) / f32(camera.image_size.y)));
+    let uv: vec2<f32> = vec2<f32>(f32(screen_pos.x) / f32(camera.image_size.x), (f32(screen_pos.y) / f32(camera.image_size.y)));
 
-    var ray: Ray;
-    ray.pos = vec3<f32>(0.0, 0.0, 0.0);
+    var ray: Ray = generatePinholeRay(pixel);
     ray.pos = (camera.camera_to_world_matrix * vec4<f32>(ray.pos, 1.0)).xyz;
-    ray.dir = vec3<f32>(uv.x * 2.0 - 1.0, uv.y * 2.0 - 1.0, -1.0);
     ray.dir = (camera.camera_to_world_matrix * vec4<f32>(ray.dir, 0.0)).xyz;
-    ray.dir = normalize(ray.dir);
-    ray.min = 0.0;
-    ray.max = INFINITY;
+
+    
+
+    // var ray: Ray;
+    // ray.pos = vec3<f32>(0.0, 0.0, 0.0);
+    // ray.pos = (camera.camera_to_world_matrix * vec4<f32>(ray.pos, 1.0)).xyz;
+    // ray.dir = vec3<f32>(uv.x * 2.0 - 1.0, uv.y * 2.0 - 1.0, -1.0);
+    // ray.dir = (camera.camera_to_world_matrix * vec4<f32>(ray.dir, 0.0)).xyz;
+    // ray.dir = normalize(ray.dir);
+    // ray.min = 0.0;
+    // ray.max = INFINITY;
   
 
     var sphere: Sphere;
