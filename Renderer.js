@@ -1,5 +1,6 @@
 import raytracer_shader from './shaders/raytracer.wgsl?raw';
 import compositer_shader from './shaders/compositer.wgsl?raw';
+import { mat4 } from 'gl-matrix';
 
 export class Renderer {
     static instance;
@@ -103,6 +104,12 @@ export class Renderer {
         };
 
         this.sampler = this.device.createSampler(samplerDescriptor);
+
+        this.camera_buffer = this.device.createBuffer({
+            label: 'camera_buffer',
+            size: 16 * 4,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
     }
 
     async createPipeline() {
@@ -117,6 +124,13 @@ export class Renderer {
                         format: 'rgba8unorm',
                         viewDimension: '2d'
                     }
+                },
+                {
+                    binding: 1,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {
+                        type: 'uniform'
+                    }
                 }
             ]
         });
@@ -128,6 +142,12 @@ export class Renderer {
                 {
                     binding: 0,
                     resource: this.color_buffer_view
+                },
+                {
+                    binding: 1,
+                    resource: {
+                        buffer: this.camera_buffer
+                    }
                 }
             ]
         });
@@ -211,7 +231,14 @@ export class Renderer {
 
     }
 
-    render() {
+    render(scene, camera) {
+
+        scene.update();
+
+        //View to World Matrix
+        let invertedMatrix = mat4.create();
+        mat4.invert(invertedMatrix, camera.viewMatrix);
+        this.device.queue.writeBuffer(this.camera_buffer, 0,invertedMatrix);
 
         const commandEncoder = this.device.createCommandEncoder();
 
