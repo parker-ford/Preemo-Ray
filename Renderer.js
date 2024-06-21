@@ -221,17 +221,21 @@ export class Renderer {
         ray_trace_pass.dispatchWorkgroups(this.canvas.width, this.canvas.height, 1);
         ray_trace_pass.end();
 
-        const textureView = this.context.getCurrentTexture().createView();
-        const rednerPass = commandEncoder.beginRenderPass({
+        const texture_view = this.context.getCurrentTexture().createView();
+        const render_pass = commandEncoder.beginRenderPass({
             colorAttachments: [{
-                view: textureView,
+                view: texture_view,
                 clearValue: { r: 0.5, g: 0.0, b: 0.25, a: 1.0 },
                 loadOp: 'clear',
                 storeOp: 'store'
             }]
         });
 
-        rednerPass.end();
+        render_pass.setPipeline(this.compositer_pipeline);
+        render_pass.setBindGroup(0, this.compositer_bind_group);
+        render_pass.draw(6, 1, 0, 0);
+
+        render_pass.end();
 
         this.device.queue.submit([commandEncoder.finish()]);
     }
