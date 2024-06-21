@@ -16,9 +16,9 @@ export class PerspectiveCamera {
         this.panini_distance = 0;
         this.panini_vertical_compression = 0;
         this.camera_fov_distance = 0;
-        this.lens_focal_length = 0;
-        this.fstop = 0;
-        this.image_plane_distance = 0;
+        this.lens_focal_length = options.lens_focal_length;
+        this.fstop = options.fstop;
+        this.image_plane_distance = options.image_plane_distance;
 
         this.useControlls = true;
         this.speed = 5;

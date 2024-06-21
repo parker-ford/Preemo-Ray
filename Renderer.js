@@ -1,6 +1,6 @@
 import raytracer_shader from './shaders/raytracer.wgsl?raw';
 import compositer_shader from './shaders/compositer.wgsl?raw';
-import { mat4 } from 'gl-matrix';
+import { Time } from './Time.js';
 
 export class Renderer {
     static instance;
@@ -110,6 +110,17 @@ export class Renderer {
             size: 112,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
+
+
+        this.time_values = new ArrayBuffer(4);
+        this.time_view = new Float32Array(this.time_values);
+
+        this.time_buffer = this.device.createBuffer({
+            label: 'time_buffer',
+            size: 4,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        })
+        
     }
 
     async createPipeline() {
@@ -131,6 +142,13 @@ export class Renderer {
                     buffer: {
                         type: 'uniform'
                     }
+                },
+                {
+                    binding: 2,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {
+                        type: 'uniform'
+                    }
                 }
             ]
         });
@@ -147,6 +165,12 @@ export class Renderer {
                     binding: 1,
                     resource: {
                         buffer: this.camera_buffer
+                    }
+                },
+                {
+                    binding: 2,
+                    resource: {
+                        buffer: this.time_buffer
                     }
                 }
             ]
@@ -234,6 +258,9 @@ export class Renderer {
         scene.update();
 
         this.device.queue.writeBuffer(this.camera_buffer, 0, camera.cameraBufferValues);
+
+        this.time_view[0] = Time.elapsedTime;
+        this.device.queue.writeBuffer(this.time_buffer, 0, this.time_values);
 
         const commandEncoder = this.device.createCommandEncoder();
 

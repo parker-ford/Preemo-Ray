@@ -1,5 +1,6 @@
 // const INFINITY: f32 = bitcast<f32>(0x7F800000u);
 const INFINITY: f32 = 3.402823466e+38;
+const PI: f32 = 3.14159265359;
 
 struct Ray {
     pos: vec3<f32>, //origin
@@ -49,6 +50,29 @@ const s16: array<vec2<f32>, 16> = array<vec2<f32>, 16>(vec2<f32>(0.5625, 0.4375)
 
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(1) var<uniform> camera: Camera;
+@group(0) @binding(2) var<uniform> time: f32;
+
+fn pcg_hash(input: u32) -> u32{
+    var state: u32 = input;
+    var word: u32 = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+fn normalize_u32(input: u32) -> f32 {
+    return f32(input) / 4294967295.0;
+}
+
+fn pos_to_seed(pos: vec2<u32>) -> u32 {
+    let seed1: u32 = pos.x * 2654435761u;
+    let seed2: u32 = pos.y * 2246822519u;
+    return (seed1 + seed2);
+    //return (seed1 ^ (seed2 << 16u)) | (seed2 >> 16u);
+}
+
+fn random_uniform(screen_pos: vec2<u32>, offset: u32) -> f32{
+    let seed: u32 = pos_to_seed(screen_pos);
+    return normalize_u32(pcg_hash(seed + offset));
+}
 
 
 fn generatePinholeRay(pixel: vec2<f32>) -> Ray {
@@ -70,6 +94,56 @@ fn generatePinholeRay(pixel: vec2<f32>) -> Ray {
     return ray;
 }
 
+fn generateLensOffset(pos: vec2<u32>) -> vec2<f32> {
+    var u: f32 = random_uniform(pos, 0 + u32(time * 1000.0));
+    var v: f32 = random_uniform(pos, 1234 + u32(time * 1000.0));
+    return vec2<f32>(u, v);
+
+    // let aperture_diameter = camera.lens_focal_length / camera.fstop;
+    // let aperture_radius = aperture_diameter / 2.0;
+
+    // var r: f32 = sqrt(u) * aperture_radius; // Scale by aperture radius
+    // var theta: f32 = v * 2.0 * PI;
+
+    // var x: f32 = r * cos(theta);
+    // var y: f32 = r * sin(theta);
+
+    // return vec2<f32>(x, y);
+}
+
+
+fn generateThinLensRay(pixel: vec2<f32>, lens_offset: vec2<f32>) -> Ray {
+    var pinhole_ray: Ray = generatePinholeRay(pixel);
+
+    var theta: f32 = lens_offset.x * 2.0 * PI;
+    var radius: f32 = lens_offset.y;
+
+    var u: f32 = cos(theta) * sqrt(radius);
+    var v: f32 = sin(theta) * sqrt(radius);
+
+    var focal_plane: f32 = (camera.image_plane_distance * camera.lens_focal_length) / (camera.image_plane_distance - camera.lens_focal_length);
+    var focal_point: vec3<f32> = pinhole_ray.dir * (focal_plane / dot(pinhole_ray.dir, vec3<f32>(0.0, 0.0, -1.0)));
+
+    //lens focal length vs focal length?
+    var circle_of_confusion_radius: f32 = camera.lens_focal_length / (2.0 * camera.fstop);
+
+
+    var origin: vec3<f32> = vec3<f32>(1.0, 0.0, 0.0) * (u * circle_of_confusion_radius) + vec3<f32>(0.0, 1.0, 0.0) * (v * circle_of_confusion_radius);
+
+    var direction: vec3<f32> = normalize(focal_point - origin);
+
+    var ray: Ray;
+    ray.pos = origin;
+    ray.dir = direction;
+    // ray.min = 0.0;
+    ray.min = 0;
+    ray.max = INFINITY;
+    return ray;
+}
+
+
+
+
 @compute @workgroup_size(1,1,1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
@@ -78,21 +152,19 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // let uv: vec2<f32> = vec2<f32>(f32(screen_pos.x) / f32(camera.image_size.x), 1.0 - (f32(screen_pos.y) / f32(camera.image_size.y)));
     let uv: vec2<f32> = vec2<f32>(f32(screen_pos.x) / f32(camera.image_size.x), (f32(screen_pos.y) / f32(camera.image_size.y)));
 
-    var ray: Ray = generatePinholeRay(pixel);
+    // var ray: Ray = generatePinholeRay(pixel);
+
+    var lens_offset: vec2<f32> = generateLensOffset(screen_pos);
+    var ray: Ray = generateThinLensRay(pixel, lens_offset);
+
     ray.pos = (camera.camera_to_world_matrix * vec4<f32>(ray.pos, 1.0)).xyz;
     ray.dir = (camera.camera_to_world_matrix * vec4<f32>(ray.dir, 0.0)).xyz;
 
     
+    //DEBUG Direction
+    // var pixel_color: vec3<f32> = vec3<f32>(ray.min);
 
-    // var ray: Ray;
-    // ray.pos = vec3<f32>(0.0, 0.0, 0.0);
-    // ray.pos = (camera.camera_to_world_matrix * vec4<f32>(ray.pos, 1.0)).xyz;
-    // ray.dir = vec3<f32>(uv.x * 2.0 - 1.0, uv.y * 2.0 - 1.0, -1.0);
-    // ray.dir = (camera.camera_to_world_matrix * vec4<f32>(ray.dir, 0.0)).xyz;
-    // ray.dir = normalize(ray.dir);
-    // ray.min = 0.0;
-    // ray.max = INFINITY;
-  
+
 
     var sphere: Sphere;
     sphere.pos = vec3<f32>(0.0, 0.0, 5.0);
