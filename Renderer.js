@@ -107,7 +107,7 @@ export class Renderer {
 
         this.camera_buffer = this.device.createBuffer({
             label: 'camera_buffer',
-            size: 16 * 4,
+            size: 112,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
     }
@@ -227,18 +227,13 @@ export class Renderer {
                 topology: 'triangle-list'
             }
         });
-
-
     }
 
     render(scene, camera) {
 
         scene.update();
 
-        //View to World Matrix
-        let invertedMatrix = mat4.create();
-        mat4.invert(invertedMatrix, camera.viewMatrix);
-        this.device.queue.writeBuffer(this.camera_buffer, 0,invertedMatrix);
+        this.device.queue.writeBuffer(this.camera_buffer, 0, camera.cameraBufferValues);
 
         const commandEncoder = this.device.createCommandEncoder();
 
