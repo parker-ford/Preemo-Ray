@@ -2,6 +2,7 @@
 export class Scene {
     constructor() {
         this.objects = [];
+        this.parameters_updated = false;
         //Debug
         this.print = false;
     }
@@ -21,6 +22,7 @@ export class Scene {
     }
 
     update(){
+        this.parameters_updated = false;
         this.objects.forEach(element => {
             
             if(typeof element.update === 'function'){

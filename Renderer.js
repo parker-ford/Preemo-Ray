@@ -18,6 +18,8 @@ export class Renderer {
         this.commandBuffers = [];
         this.renderFunctions = [];
 
+        this.frame_number = 1;
+
         //Assets
         this.color_buffer = null;
         this.color_buffer_view = null;
@@ -127,12 +129,16 @@ export class Renderer {
         });
 
 
-        this.time_values = new ArrayBuffer(4);
-        this.time_view = new Float32Array(this.time_values);
+        this.time_values = new ArrayBuffer(8);
+        // this.time_view = new Float32Array(this.time_values);
+        this.time_views = {
+            elapsed_time: new Float32Array(this.time_values, 0, 1),
+            frame_number: new Uint32Array(this.time_values, 4, 1),
+          };
 
         this.time_buffer = this.device.createBuffer({
             label: 'time_buffer',
-            size: 4,
+            size: 8,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         })
         
@@ -152,7 +158,7 @@ export class Renderer {
                     }
                 },
                 {
-                    binding: 3,
+                    binding: 1,
                     visibility: GPUShaderStage.COMPUTE,
                     storageTexture: {
                         access: 'read-only',
@@ -161,14 +167,14 @@ export class Renderer {
                     }
                 },
                 {
-                    binding: 1,
+                    binding: 2,
                     visibility: GPUShaderStage.COMPUTE,
                     buffer: {
                         type: 'uniform'
                     }
                 },
                 {
-                    binding: 2,
+                    binding: 3,
                     visibility: GPUShaderStage.COMPUTE,
                     buffer: {
                         type: 'uniform'
@@ -186,17 +192,17 @@ export class Renderer {
                     resource: this.color_buffer_view
                 },
                 {
-                    binding: 3,
+                    binding: 1,
                     resource: this.color_buffer_read_view
                 },
                 {
-                    binding: 1,
+                    binding: 2,
                     resource: {
                         buffer: this.camera_buffer
                     }
                 },
                 {
-                    binding: 2,
+                    binding: 3,
                     resource: {
                         buffer: this.time_buffer
                     }
@@ -283,11 +289,16 @@ export class Renderer {
 
     render(scene, camera) {
 
+        if(camera.hasMoved || scene.parameters_updated){
+            this.frame_number = 0;
+         }
+
         scene.update();
 
         this.device.queue.writeBuffer(this.camera_buffer, 0, camera.cameraBufferValues);
 
-        this.time_view[0] = Time.elapsedTime;
+        this.time_views.elapsed_time[0] = Time.elapsedTime;
+        this.time_views.frame_number[0] = this.frame_number;
         this.device.queue.writeBuffer(this.time_buffer, 0, this.time_values);
 
         const commandEncoder = this.device.createCommandEncoder();
@@ -314,7 +325,6 @@ export class Renderer {
                 view: texture_view,
                 clearValue: { r: 0.5, g: 0.0, b: 0.25, a: 1.0 },
                 loadOp: 'clear',
-                // loadOp: 'load',
                 storeOp: 'store'
             }]
         });
@@ -326,5 +336,7 @@ export class Renderer {
         render_pass.end();
 
         this.device.queue.submit([commandEncoder.finish()]);
+
+        this.frame_number++;
     }
 }

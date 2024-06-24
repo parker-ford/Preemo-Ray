@@ -22,6 +22,11 @@ struct Camera {
     image_plane_distance: f32, //distance from camera to image plane
 }
 
+struct Time {
+    elapsed_time: f32,
+    frame_number: u32
+}
+
 struct Sphere {
     pos: vec3<f32>,
     radius: f32,
@@ -50,9 +55,9 @@ const s16: array<vec2<f32>, 16> = array<vec2<f32>, 16>(vec2<f32>(0.5625, 0.4375)
 
 // @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, read>;
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
-@group(0) @binding(3) var color_buffer_read: texture_storage_2d<rgba8unorm, read>;
-@group(0) @binding(1) var<uniform> camera: Camera;
-@group(0) @binding(2) var<uniform> time: f32;
+@group(0) @binding(1) var color_buffer_read: texture_storage_2d<rgba8unorm, read>;
+@group(0) @binding(2) var<uniform> camera: Camera;
+@group(0) @binding(3) var<uniform> time: Time;
 
 fn pcg_hash(input: u32) -> u32{
     var state: u32 = input;
@@ -76,6 +81,11 @@ fn random_uniform(screen_pos: vec2<u32>, offset: u32) -> f32{
     return normalize_u32(pcg_hash(seed + offset));
 }
 
+fn generateLensOffset(pos: vec2<u32>) -> vec2<f32> {
+    var u: f32 = random_uniform(pos, 0 + u32(time.elapsed_time * 1000.0));
+    var v: f32 = random_uniform(pos, 1234 + u32(time.elapsed_time * 1000.0));
+    return vec2<f32>(u, v);
+}
 
 fn generatePinholeRay(pixel: vec2<f32>) -> Ray {
     var tan_half_angle: f32 = tan(camera.fov_angle / 2.0);
@@ -95,24 +105,6 @@ fn generatePinholeRay(pixel: vec2<f32>) -> Ray {
     ray.max = INFINITY;
     return ray;
 }
-
-fn generateLensOffset(pos: vec2<u32>) -> vec2<f32> {
-    var u: f32 = random_uniform(pos, 0 + u32(time * 1000.0));
-    var v: f32 = random_uniform(pos, 1234 + u32(time * 1000.0));
-    return vec2<f32>(u, v);
-
-    // let aperture_diameter = camera.lens_focal_length / camera.fstop;
-    // let aperture_radius = aperture_diameter / 2.0;
-
-    // var r: f32 = sqrt(u) * aperture_radius; // Scale by aperture radius
-    // var theta: f32 = v * 2.0 * PI;
-
-    // var x: f32 = r * cos(theta);
-    // var y: f32 = r * sin(theta);
-
-    // return vec2<f32>(x, y);
-}
-
 
 fn generateThinLensRay(pixel: vec2<f32>, lens_offset: vec2<f32>) -> Ray {
     var pinhole_ray: Ray = generatePinholeRay(pixel);
@@ -137,51 +129,48 @@ fn generateThinLensRay(pixel: vec2<f32>, lens_offset: vec2<f32>) -> Ray {
     var ray: Ray;
     ray.pos = origin;
     ray.dir = direction;
-    // ray.min = 0.0;
     ray.min = 0;
     ray.max = INFINITY;
     return ray;
 }
 
-
-
+fn ray_color(ray: Ray) -> vec3<f32> {
+    var a = 0.5 * (ray.dir.y + 1.0);
+    return (1.0-a)*vec3<f32>(1.0, 1.0, 1.0) + a*vec3<f32>(0.5, 0.7, 1.0);
+}
 
 @compute @workgroup_size(1,1,1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let screen_pos: vec2<u32> = vec2<u32>(u32(global_id.x), u32(global_id.y));
     let pixel: vec2<f32> = vec2<f32>(f32(screen_pos.x), f32(screen_pos.y)) * 2.0 - camera.image_size;
-    // let uv: vec2<f32> = vec2<f32>(f32(screen_pos.x) / f32(camera.image_size.x), 1.0 - (f32(screen_pos.y) / f32(camera.image_size.y)));
     let uv: vec2<f32> = vec2<f32>(f32(screen_pos.x) / f32(camera.image_size.x), (f32(screen_pos.y) / f32(camera.image_size.y)));
 
-    // var ray: Ray = generatePinholeRay(pixel);
-
-    var lens_offset: vec2<f32> = generateLensOffset(screen_pos);
-    var ray: Ray = generateThinLensRay(pixel, lens_offset);
+    var ray: Ray = generatePinholeRay(pixel);
 
     ray.pos = (camera.camera_to_world_matrix * vec4<f32>(ray.pos, 1.0)).xyz;
     ray.dir = (camera.camera_to_world_matrix * vec4<f32>(ray.dir, 0.0)).xyz;
-
-    
-    //DEBUG Direction
-    // var pixel_color: vec3<f32> = vec3<f32>(ray.min);
-
-
 
     var sphere: Sphere;
     sphere.pos = vec3<f32>(0.0, 0.0, 5.0);
     sphere.radius = 1.0;
 
-    var pixel_color: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
+    // var pixel_color: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
+    var pixel_color: vec3<f32> = ray_color(ray);
 
-    var ray_to_sphere: vec3<f32> = sphere.pos - ray.pos;
-    var t: f32 = dot(ray_to_sphere, ray.dir);
-    if(length(ray.pos + t * ray.dir - sphere.pos) < sphere.radius){
-        pixel_color = vec3<f32>(1.0, 0.0, 0.0);
+    // var ray_to_sphere: vec3<f32> = sphere.pos - ray.pos;
+    // var t: f32 = dot(ray_to_sphere, ray.dir);
+    // if(length(ray.pos + t * ray.dir - sphere.pos) < sphere.radius){
+    //     pixel_color = vec3<f32>(1.0, 0.0, 0.0);
+    // }
+
+    if(time.frame_number != 0u){
+        let frame_f32: f32 = f32(time.frame_number);
+        let weight: f32 = 1.0 / frame_f32;
+        let old_pixel_color: vec4<f32> = textureLoad(color_buffer_read, screen_pos);
+        pixel_color = pixel_color * weight + old_pixel_color.xyz * (1.0 - weight);
     }
 
 
-    let current_color: vec4<f32> = textureLoad(color_buffer_read, screen_pos);
-    pixel_color = pixel_color + current_color.rgb;
     textureStore(color_buffer, screen_pos, vec4<f32>(pixel_color, 1.0));
 }

@@ -24,6 +24,8 @@ export class PerspectiveCamera {
         this.speed = 5;
         this.rotateSpeed = 0.6;
 
+        this.hasMoved = false;
+
         this.gui = null;
         this.rect = null;
 
@@ -95,24 +97,31 @@ export class PerspectiveCamera {
     controllsUpdate(){
         this.smoothDeltaMouse = this.smoothDeltaMouse || vec2.create();
         this.smoothingFactor = 0.16;
+        this.hasMoved = false;
 
         if(Input.isKeyDown('w')){
             vec3.add(this.transform.position, this.transform.position, vec3.scale(vec3.create(), this.transform.forward, this.speed * Time.deltaTime));
+            this.hasMoved = true;
         }
         if(Input.isKeyDown('s')){
             vec3.add(this.transform.position, this.transform.position, vec3.scale(vec3.create(), this.transform.forward, -1 * this.speed * Time.deltaTime));
+            this.hasMoved = true;
         }
         if(Input.isKeyDown('a')){
             vec3.add(this.transform.position, this.transform.position, vec3.scale(vec3.create(), this.transform.right, -1 * this.speed * Time.deltaTime));
+            this.hasMoved = true;
         }
         if(Input.isKeyDown('d')){
             vec3.add(this.transform.position, this.transform.position, vec3.scale(vec3.create(), this.transform.right, this.speed * Time.deltaTime));
+            this.hasMoved = true;
         }
         if(Input.isKeyDown('q')){
             vec3.add(this.transform.position, this.transform.position, vec3.scale(vec3.create(), this.transform.up, -1 * this.speed * Time.deltaTime));
+            this.hasMoved = true;
         }
         if(Input.isKeyDown('e')){
             vec3.add(this.transform.position, this.transform.position, vec3.scale(vec3.create(), this.transform.up, this.speed * Time.deltaTime));
+            this.hasMoved = true;
         }
 
         if(Input.isMouseDown(0) && !this.isMouseOverGui()){
@@ -128,6 +137,7 @@ export class PerspectiveCamera {
             mat4.multiply(R, R, mat4.invert(mat4.create(), invP));
             vec3.transformMat4(this.transform.position, this.transform.position, R);
             quat.multiply(this.transform.rotation, q, this.transform.rotation);
+            this.hasMoved = true;
         }
     }
 }
