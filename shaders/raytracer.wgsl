@@ -41,6 +41,15 @@ struct SphereData {
     spheres: array<Sphere>
 }
 
+struct HitInfo {
+    hit: bool,
+    t: f32,
+    p: vec3<f32>,
+    normal: vec3<f32>,
+    color: vec3<f32>,
+    // material: Material,
+};
+
 
 //Hardcoded subpixel offsets for super sampling according to DirectX MSAA for 1,2,4,8,16 samples
 //TODO: Look into 2,3 Halton sequence for desired number of sample offsets
@@ -145,24 +154,49 @@ fn generateThinLensRay(pixel: vec2<f32>, lens_offset: vec2<f32>) -> Ray {
     return ray;
 }
 
-fn hit_sphere(sphere: Sphere, ray: Ray) -> f32 {
+fn hit_sphere(sphere: Sphere, ray: Ray) -> HitInfo {
     var oc: vec3<f32> = sphere.pos - ray.pos;
     var a: f32 = 1.0;
     var h: f32 = dot(ray.dir, oc);
     var c: f32 = length(oc) * length(oc) - sphere.radius * sphere.radius;
     var discriminant: f32 = h * h - a * c;
 
+    var hit_info: HitInfo;
+
     if(discriminant < 0.0){
-        return -1.0;
+        hit_info.hit = false;
     }
     else{
-        return (h - sqrt(discriminant)) / a;
+        hit_info.hit = true;
+        hit_info.t = (h - sqrt(discriminant)) / a;
+        hit_info.p = ray.pos + hit_info.t * ray.dir;
+        hit_info.normal = normalize(hit_info.p - sphere.pos);
+        hit_info.color = sphere.color;
+        
     }
+
+    return hit_info;
 }
 
 fn ray_color(ray: Ray) -> vec3<f32> {
     var a = 0.5 * (ray.dir.y + 1.0);
     return (1.0-a)*vec3<f32>(1.0, 1.0, 1.0) + a*vec3<f32>(0.5, 0.7, 1.0);
+}
+
+fn intersect_ray(ray: Ray) -> HitInfo{
+    var closest_hit: HitInfo;
+    closest_hit.hit = false;
+    closest_hit.t = INFINITY;
+
+    for(var i: u32 = 0u; i < scene.sphere_count; i = i + 1u){
+        var sphere: Sphere = sphere_data.spheres[i];
+        var hit_info: HitInfo = hit_sphere(sphere, ray);
+        if(hit_info.hit && hit_info.t < closest_hit.t){
+            closest_hit = hit_info;
+        }
+    }
+
+    return closest_hit;
 }
 
 @compute @workgroup_size(1,1,1)
@@ -177,24 +211,12 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     ray.pos = (camera.camera_to_world_matrix * vec4<f32>(ray.pos, 1.0)).xyz;
     ray.dir = (camera.camera_to_world_matrix * vec4<f32>(ray.dir, 0.0)).xyz;
 
-    var sphere: Sphere = sphere_data.spheres[0];
-    // sphere.pos = vec3<f32>(0.0, 0.0, 5.0);
-    // sphere.radius = 1.0;
-
-    // var pixel_color: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
     var pixel_color: vec3<f32> = ray_color(ray);
-    var t: f32 = hit_sphere(sphere, ray);
-    if(t > 0.0){
-        var p: vec3<f32> = ray.pos + t * ray.dir;
-        var normal: vec3<f32> = normalize(p - sphere.pos);
-        pixel_color = 0.5 * vec3<f32>(normal.x + 1.0, normal.y + 1.0, (1.0 - normal.z) + 1.0);
-    }
 
-    // var ray_to_sphere: vec3<f32> = sphere.pos - ray.pos;
-    // var t: f32 = dot(ray_to_sphere, ray.dir);
-    // if(length(ray.pos + t * ray.dir - sphere.pos) < sphere.radius){
-    //     pixel_color = vec3<f32>(1.0, 0.0, 0.0);
-    // }
+    var hit_info: HitInfo = intersect_ray(ray);
+    if(hit_info.hit && hit_info.t > 0.0){
+        pixel_color = 0.5 * (hit_info.normal + 1.0);
+    }
 
     if(time.frame_number != 0u){
         let frame_f32: f32 = f32(time.frame_number);
@@ -202,7 +224,6 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let old_pixel_color: vec4<f32> = textureLoad(color_buffer_read, screen_pos);
         pixel_color = pixel_color * weight + old_pixel_color.xyz * (1.0 - weight);
     }
-
 
     textureStore(color_buffer, screen_pos, vec4<f32>(pixel_color, 1.0));
 }
