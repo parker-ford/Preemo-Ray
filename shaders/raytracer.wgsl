@@ -19,7 +19,9 @@ struct Camera {
     camera_fov_distance: f32, //scalar field of view in m, used for orthographic projection
     lens_focal_length: f32, //lens focal length in m
     fstop: f32, //ratio of focal legnth to apeture diameter,
-    image_plane_distance: f32, //distance from camera to image plane
+    image_plane_distance: f32, //distance from camera to image plane,
+    clip_near: f32, //near clipping plane
+    clip_far: f32, //far clipping plane
 }
 
 struct Time {
@@ -125,8 +127,8 @@ fn generatePinholeRay(pixel: vec2<f32>, offset: vec2<f32>) -> Ray {
     var ray: Ray;
     ray.pos = vec3<f32>(0.0, 0.0, 0.0);
     ray.dir = direction;
-    ray.min = 0.0;
-    ray.max = INFINITY;
+    ray.min = camera.clip_near;
+    ray.max = camera.clip_far;
     return ray;
 }
 
@@ -169,15 +171,33 @@ fn hit_sphere(sphere: Sphere, ray: Ray) -> HitInfo {
 
     if(discriminant < 0.0){
         hit_info.hit = false;
+        return hit_info;
     }
-    else{
-        hit_info.hit = true;
-        hit_info.t = (h - sqrt(discriminant)) / a;
-        hit_info.p = ray.pos + hit_info.t * ray.dir;
-        hit_info.normal = normalize(hit_info.p - sphere.pos);
-        hit_info.color = sphere.color;
+
+    var sqrtd = sqrt(discriminant);
+
+    var root = (h - sqrtd) / a;
+    if(root <= ray.min || root >= ray.max){
+        root = (h + sqrtd) / a;
+        if(root <= ray.min || root >= ray.max){
+            hit_info.hit = false;
+            return hit_info;
+        }
+    }
+
+    hit_info.hit = true;
+    hit_info.t = root;
+    hit_info.p = ray.pos + hit_info.t * ray.dir;
+    hit_info.normal = (hit_info.p - sphere.pos) / sphere.radius;
+
+    // else{
+    //     hit_info.hit = true;
+    //     hit_info.t = (h - sqrt(discriminant)) / a;
+    //     hit_info.p = ray.pos + hit_info.t * ray.dir;
+    //     hit_info.normal = normalize(hit_info.p - sphere.pos);
+    //     hit_info.color = sphere.color;
         
-    }
+    // }
 
     return hit_info;
 }

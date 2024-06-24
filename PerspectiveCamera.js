@@ -49,6 +49,8 @@ export class PerspectiveCamera {
             lens_focal_length: new Float32Array(this.cameraBufferValues, 92, 1),
             fstop: new Float32Array(this.cameraBufferValues, 96, 1),
             image_plane_distance: new Float32Array(this.cameraBufferValues, 100, 1),
+            clip_near: new Float32Array(this.cameraBufferValues, 104, 1),
+            clip_far: new Float32Array(this.cameraBufferValues, 108, 1),
         };
     }
 
@@ -67,6 +69,8 @@ export class PerspectiveCamera {
         this.cameraBufferViews.lens_focal_length[0] = this.lens_focal_length;
         this.cameraBufferViews.fstop[0] = this.fstop;
         this.cameraBufferViews.image_plane_distance[0] = this.image_plane_distance;
+        this.cameraBufferViews.clip_near[0] = this.near;
+        this.cameraBufferViews.clip_far[0] = this.far;
     }
 
     update(){

@@ -336,7 +336,7 @@ export class Renderer {
 
         scene.update();
 
-        //View Matrix
+        //Camera Data
         this.device.queue.writeBuffer(this.camera_buffer, 0, camera.cameraBufferValues);
 
         //Sphere Data
