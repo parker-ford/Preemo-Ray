@@ -130,7 +130,6 @@ export class Renderer {
 
 
         this.time_values = new ArrayBuffer(8);
-        // this.time_view = new Float32Array(this.time_values);
         this.time_views = {
             elapsed_time: new Float32Array(this.time_values, 0, 1),
             frame_number: new Uint32Array(this.time_values, 4, 1),
@@ -140,7 +139,22 @@ export class Renderer {
             label: 'time_buffer',
             size: 8,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+
+        this.scene_values = new ArrayBuffer(4);
+        this.scene_views = {
+            sphere_count: new Uint32Array(this.scene_values, 0, 1),
+        }
+        this.scene_buffer = this.device.createBuffer({
+            label: 'scene_buffer',
+            size: 4,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         })
+
+        this.sphere_buffer = this.device.createBuffer({
+            size: 32 * 100, //Size of sphere * number of spheres
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
         
     }
 
@@ -179,6 +193,21 @@ export class Renderer {
                     buffer: {
                         type: 'uniform'
                     }
+                },
+                {
+                    binding: 4,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {
+                        type: 'uniform'
+                    }
+                },
+                {
+                    binding: 5,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {
+                        type: 'read-only-storage',
+                        hasDynamicOffset: false
+                    }
                 }
             ]
         });
@@ -205,6 +234,18 @@ export class Renderer {
                     binding: 3,
                     resource: {
                         buffer: this.time_buffer
+                    }
+                },
+                {
+                    binding: 4,
+                    resource: {
+                        buffer: this.scene_buffer
+                    }
+                },
+                {
+                    binding: 5,
+                    resource: {
+                        buffer: this.sphere_buffer
                     }
                 }
             ]
@@ -295,8 +336,19 @@ export class Renderer {
 
         scene.update();
 
+        //View Matrix
         this.device.queue.writeBuffer(this.camera_buffer, 0, camera.cameraBufferValues);
 
+        //Sphere Data
+        let clearBuffer = new ArrayBuffer(this.sphere_buffer.size);
+        this.device.queue.writeBuffer(this.sphere_buffer, 0, clearBuffer);
+        this.device.queue.writeBuffer(this.sphere_buffer, 0, scene.spheres_data, 0, scene.spheres_data.byteLength);
+
+        //Scene Data
+        this.scene_views.sphere_count[0] = scene.spheres_count;
+        this.device.queue.writeBuffer(this.scene_buffer, 0, this.scene_values);
+
+        //Time Data
         this.time_views.elapsed_time[0] = Time.elapsedTime;
         this.time_views.frame_number[0] = this.frame_number;
         this.device.queue.writeBuffer(this.time_buffer, 0, this.time_values);

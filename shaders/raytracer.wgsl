@@ -30,7 +30,16 @@ struct Time {
 struct Sphere {
     pos: vec3<f32>,
     radius: f32,
+    color: vec3<f32>,
 };
+
+struct Scene {
+    sphere_count: u32,
+};
+
+struct SphereData {
+    spheres: array<Sphere>
+}
 
 
 //Hardcoded subpixel offsets for super sampling according to DirectX MSAA for 1,2,4,8,16 samples
@@ -58,6 +67,8 @@ const s16: array<vec2<f32>, 16> = array<vec2<f32>, 16>(vec2<f32>(0.5625, 0.4375)
 @group(0) @binding(1) var color_buffer_read: texture_storage_2d<rgba8unorm, read>;
 @group(0) @binding(2) var<uniform> camera: Camera;
 @group(0) @binding(3) var<uniform> time: Time;
+@group(0) @binding(4) var<uniform> scene: Scene;
+@group(0) @binding(5) var<storage, read> sphere_data: SphereData;
 
 fn pcg_hash(input: u32) -> u32{
     var state: u32 = input;
@@ -135,19 +146,6 @@ fn generateThinLensRay(pixel: vec2<f32>, lens_offset: vec2<f32>) -> Ray {
 }
 
 fn hit_sphere(sphere: Sphere, ray: Ray) -> f32 {
-//     var oc: vec3<f32> = sphere.pos - ray.pos;
-//     var a: f32 = dot(ray.dir, ray.dir);
-//     var b: f32 = -2.0 * dot(oc, ray.dir);
-//     var c: f32 = dot(oc, oc) - sphere.radius * sphere.radius;
-//     var discriminant: f32 = b * b - 4.0 * a * c;
-   
-//    if(discriminant < 0.0){
-//     return -1.0;
-//    }
-//     else{
-//      return (-b - sqrt(discriminant)) / (2.0 * a);
-//     }
-
     var oc: vec3<f32> = sphere.pos - ray.pos;
     var a: f32 = 1.0;
     var h: f32 = dot(ray.dir, oc);
@@ -179,9 +177,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     ray.pos = (camera.camera_to_world_matrix * vec4<f32>(ray.pos, 1.0)).xyz;
     ray.dir = (camera.camera_to_world_matrix * vec4<f32>(ray.dir, 0.0)).xyz;
 
-    var sphere: Sphere;
-    sphere.pos = vec3<f32>(0.0, 0.0, 5.0);
-    sphere.radius = 1.0;
+    var sphere: Sphere = sphere_data.spheres[0];
+    // sphere.pos = vec3<f32>(0.0, 0.0, 5.0);
+    // sphere.radius = 1.0;
 
     // var pixel_color: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
     var pixel_color: vec3<f32> = ray_color(ray);
