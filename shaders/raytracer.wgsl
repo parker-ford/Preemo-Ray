@@ -48,7 +48,9 @@ const s16: array<vec2<f32>, 16> = array<vec2<f32>, 16>(vec2<f32>(0.5625, 0.4375)
                                                     vec2<f32>(0.875, 0.0625), vec2<f32>(0.0625, 0.0));
 
 
+// @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, read>;
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
+@group(0) @binding(3) var color_buffer_read: texture_storage_2d<rgba8unorm, read>;
 @group(0) @binding(1) var<uniform> camera: Camera;
 @group(0) @binding(2) var<uniform> time: f32;
 
@@ -179,6 +181,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
 
 
-
+    let current_color: vec4<f32> = textureLoad(color_buffer_read, screen_pos);
+    pixel_color = pixel_color + current_color.rgb;
     textureStore(color_buffer, screen_pos, vec4<f32>(pixel_color, 1.0));
 }

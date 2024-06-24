@@ -82,6 +82,8 @@ export class Renderer {
     }
 
     async createAssets() {
+
+        //Write Buffer
         this.color_buffer = this.device.createTexture({
             label: 'color_buffer',
             size : {
@@ -89,10 +91,23 @@ export class Renderer {
                 height: this.canvas.height,
             },
             format: 'rgba8unorm',
-            usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING 
+            usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC |GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING 
         });
 
         this.color_buffer_view = this.color_buffer.createView();
+
+        //Read Buffer
+        this.color_buffer_read = this.device.createTexture({
+            label: 'color_buffer_read',
+            size : {
+                width: this.canvas.width,
+                height: this.canvas.height,
+            },
+            format: 'rgba8unorm',
+            usage: GPUTextureUsage.COPY_DST |GPUTextureUsage.COPY_SRC | GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+        });
+
+        this.color_buffer_read_view = this.color_buffer_read.createView();
 
         const samplerDescriptor = {
             addressModeU: 'repeat',
@@ -137,6 +152,15 @@ export class Renderer {
                     }
                 },
                 {
+                    binding: 3,
+                    visibility: GPUShaderStage.COMPUTE,
+                    storageTexture: {
+                        access: 'read-only',
+                        format: 'rgba8unorm',
+                        viewDimension: '2d'
+                    }
+                },
+                {
                     binding: 1,
                     visibility: GPUShaderStage.COMPUTE,
                     buffer: {
@@ -160,6 +184,10 @@ export class Renderer {
                 {
                     binding: 0,
                     resource: this.color_buffer_view
+                },
+                {
+                    binding: 3,
+                    resource: this.color_buffer_read_view
                 },
                 {
                     binding: 1,
@@ -270,12 +298,23 @@ export class Renderer {
         ray_trace_pass.dispatchWorkgroups(this.canvas.width, this.canvas.height, 1);
         ray_trace_pass.end();
 
+        commandEncoder.copyTextureToTexture(
+            { texture: this.color_buffer }, 
+            { texture: this.color_buffer_read }, 
+            {
+                width: this.canvas.width,
+                height: this.canvas.height,
+                depthOrArrayLayers: 1,
+            }
+        );
+
         const texture_view = this.context.getCurrentTexture().createView();
         const render_pass = commandEncoder.beginRenderPass({
             colorAttachments: [{
                 view: texture_view,
                 clearValue: { r: 0.5, g: 0.0, b: 0.25, a: 1.0 },
                 loadOp: 'clear',
+                // loadOp: 'load',
                 storeOp: 'store'
             }]
         });
