@@ -188,16 +188,16 @@ fn hit_sphere(sphere: Sphere, ray: Ray) -> HitInfo {
     hit_info.hit = true;
     hit_info.t = root;
     hit_info.p = ray.pos + hit_info.t * ray.dir;
-    hit_info.normal = (hit_info.p - sphere.pos) / sphere.radius;
 
-    // else{
-    //     hit_info.hit = true;
-    //     hit_info.t = (h - sqrt(discriminant)) / a;
-    //     hit_info.p = ray.pos + hit_info.t * ray.dir;
-    //     hit_info.normal = normalize(hit_info.p - sphere.pos);
-    //     hit_info.color = sphere.color;
-        
-    // }
+    var outward_normal: vec3<f32> = (hit_info.p - sphere.pos) / sphere.radius;
+    var front_face: bool = dot(ray.dir, outward_normal) < 0.0;
+    if(front_face){
+        hit_info.normal = outward_normal;
+    } else {
+        hit_info.normal = -outward_normal;
+    }
+    // hit_info.normal = (hit_info.p - sphere.pos) / sphere.radius;
+
 
     return hit_info;
 }
