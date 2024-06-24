@@ -134,6 +134,34 @@ fn generateThinLensRay(pixel: vec2<f32>, lens_offset: vec2<f32>) -> Ray {
     return ray;
 }
 
+fn hit_sphere(sphere: Sphere, ray: Ray) -> f32 {
+//     var oc: vec3<f32> = sphere.pos - ray.pos;
+//     var a: f32 = dot(ray.dir, ray.dir);
+//     var b: f32 = -2.0 * dot(oc, ray.dir);
+//     var c: f32 = dot(oc, oc) - sphere.radius * sphere.radius;
+//     var discriminant: f32 = b * b - 4.0 * a * c;
+   
+//    if(discriminant < 0.0){
+//     return -1.0;
+//    }
+//     else{
+//      return (-b - sqrt(discriminant)) / (2.0 * a);
+//     }
+
+    var oc: vec3<f32> = sphere.pos - ray.pos;
+    var a: f32 = 1.0;
+    var h: f32 = dot(ray.dir, oc);
+    var c: f32 = length(oc) * length(oc) - sphere.radius * sphere.radius;
+    var discriminant: f32 = h * h - a * c;
+
+    if(discriminant < 0.0){
+        return -1.0;
+    }
+    else{
+        return (h - sqrt(discriminant)) / a;
+    }
+}
+
 fn ray_color(ray: Ray) -> vec3<f32> {
     var a = 0.5 * (ray.dir.y + 1.0);
     return (1.0-a)*vec3<f32>(1.0, 1.0, 1.0) + a*vec3<f32>(0.5, 0.7, 1.0);
@@ -157,6 +185,12 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // var pixel_color: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
     var pixel_color: vec3<f32> = ray_color(ray);
+    var t: f32 = hit_sphere(sphere, ray);
+    if(t > 0.0){
+        var p: vec3<f32> = ray.pos + t * ray.dir;
+        var normal: vec3<f32> = normalize(p - sphere.pos);
+        pixel_color = 0.5 * vec3<f32>(normal.x + 1.0, normal.y + 1.0, (1.0 - normal.z) + 1.0);
+    }
 
     // var ray_to_sphere: vec3<f32> = sphere.pos - ray.pos;
     // var t: f32 = dot(ray_to_sphere, ray.dir);
