@@ -7,6 +7,7 @@ struct Ray {
     min: f32, //distance at which intersection testing begins
     dir: vec3<f32>, //direction (normalized)
     max: f32, //distance at which intersection testing ends
+    id: vec2<u32> //screen position TODO: Check if extra data leads to performance issues
 };
 
 struct Camera {
@@ -103,10 +104,35 @@ fn random_uniform(screen_pos: vec2<u32>, offset: u32) -> f32{
     return normalize_u32(pcg_hash(seed + offset));
 }
 
-fn generate_random_offset(pos: vec2<u32>) -> vec2<f32> {
-    var u: f32 = random_uniform(pos, 0 + u32(time.elapsed_time * 1000.0));
-    var v: f32 = random_uniform(pos, 1234 + u32(time.elapsed_time * 1000.0));
-    return vec2<f32>(u, v);
+fn generate_random_vec2(pos: vec2<u32>, seed: u32) -> vec2<f32> {
+    var x: f32 = random_uniform(pos, seed);
+    var y: f32 = random_uniform(pos, 5507 * seed);
+    return vec2<f32>(x, y);
+}
+
+fn generate_random_vec3(pos: vec2<u32>, seed: u32) -> vec3<f32> {
+    var x: f32 = random_uniform(pos, seed);
+    var y: f32 = random_uniform(pos, 5507 * seed);
+    var z: f32 = random_uniform(pos, 7879 * seed);
+    return vec3<f32>(x, y, z);
+}
+
+fn generate_hemisphere_vec3(pos: vec2<u32>, seed: u32, normal: vec3<f32>) -> vec3<f32> {
+    let max_iterations: u32 = 100u;
+    for(var i: u32 = 0u; i < max_iterations; i = i + 1u){
+        var random_vec: vec3<f32> = generate_random_vec3(pos, seed + (1000u * i)) * 2.0 - 1.0;
+        if(length(random_vec) <= 1.0){
+            var random_vec_norm = normalize(random_vec);
+            if(dot(random_vec_norm, normal) > 0.0){
+                return random_vec_norm;
+            }
+            else{
+                return -random_vec_norm;
+            }
+        }
+    }
+
+    return vec3<f32>(0.0, 0.0, 0.0);
 }
 
 fn generatePinholeRay(pixel: vec2<f32>, offset: vec2<f32>) -> Ray {
@@ -202,10 +228,7 @@ fn hit_sphere(sphere: Sphere, ray: Ray) -> HitInfo {
     return hit_info;
 }
 
-fn ray_color(ray: Ray) -> vec3<f32> {
-    var a = 0.5 * (ray.dir.y + 1.0);
-    return (1.0-a)*vec3<f32>(1.0, 1.0, 1.0) + a*vec3<f32>(0.5, 0.7, 1.0);
-}
+
 
 fn intersect_ray(ray: Ray) -> HitInfo{
     var closest_hit: HitInfo;
@@ -223,6 +246,38 @@ fn intersect_ray(ray: Ray) -> HitInfo{
     return closest_hit;
 }
 
+fn ray_color(ray: Ray) -> vec3<f32> {
+
+
+    let max_bounces: u32 = 10u;
+    var current_ray: Ray = ray;
+    var accumulated_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
+    for(var i: u32 = 0u; i < max_bounces; i = i + 1u){
+        var hit_info: HitInfo = intersect_ray(current_ray);
+        if(hit_info.hit && hit_info.t > 0.0){
+            accumulated_color = accumulated_color * 0.5;
+            var new_dir: vec3<f32> = generate_hemisphere_vec3(current_ray.id, time.frame_number + 1u, hit_info.normal);
+            current_ray.dir = new_dir;
+            current_ray.pos = hit_info.p;
+        } else {
+            var a = 0.5 * (current_ray.dir.y + 1.0);
+            accumulated_color *= (1.0-a)*vec3<f32>(1.0, 1.0, 1.0) + a*vec3<f32>(0.5, 0.7, 1.0);
+            break;
+        }
+    }
+
+    return accumulated_color;
+
+    // var hit_info: HitInfo = intersect_ray(ray);
+    // if(hit_info.hit && hit_info.t > 0.0){
+    //     ray.dir = generate_hemisphere_vec3(ray.id, u32(time.elapsed_time * 1000.0), hit_info.normal);
+    //     return 0.5 * ray_color(ray);
+    // }
+    
+    // var a = 0.5 * (ray.dir.y + 1.0);
+    // return (1.0-a)*vec3<f32>(1.0, 1.0, 1.0) + a*vec3<f32>(0.5, 0.7, 1.0);
+}
+
 @compute @workgroup_size(1,1,1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
@@ -231,17 +286,14 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // var pixel_color: vec3<f32> = vec3<f32>(generate_random_offset(screen_pos), 0.0);
 
-    var ray: Ray = generatePinholeRay(pixel, generate_random_offset(screen_pos));
+    var ray: Ray = generatePinholeRay(pixel, generate_random_vec2(screen_pos, (time.frame_number + 1u)));
 
     ray.pos = (camera.camera_to_world_matrix * vec4<f32>(ray.pos, 1.0)).xyz;
     ray.dir = (camera.camera_to_world_matrix * vec4<f32>(ray.dir, 0.0)).xyz;
+    ray.id = screen_pos;
 
     var pixel_color: vec3<f32> = ray_color(ray);
-
-    var hit_info: HitInfo = intersect_ray(ray);
-    if(hit_info.hit && hit_info.t > 0.0){
-        pixel_color = 0.5 * (hit_info.normal + 1.0);
-    }
+    // var pixel_color: vec3<f32> = generate_hemisphere_vec3;
 
     if(time.frame_number != 0u){
         let frame_f32: f32 = f32(time.frame_number);
@@ -250,5 +302,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         pixel_color = pixel_color * weight + old_pixel_color.xyz * (1.0 - weight);
     }
 
-    textureStore(color_buffer, screen_pos, vec4<f32>(pixel_color, 1.0));
+    if(time.frame_number < 20u){
+        textureStore(color_buffer, screen_pos, vec4<f32>(pixel_color, 1.0));
+    }
 }
