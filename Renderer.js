@@ -156,6 +156,10 @@ export class Renderer {
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
         
+        this.material_buffer = this.device.createBuffer({
+            size: 32 * 100, //Size of material * number of spheres
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        })
     }
 
     async createPipeline() {
@@ -208,6 +212,14 @@ export class Renderer {
                         type: 'read-only-storage',
                         hasDynamicOffset: false
                     }
+                },
+                {
+                    binding: 6,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {
+                        type: 'read-only-storage',
+                        hasDynamicOffset: false
+                    }
                 }
             ]
         });
@@ -246,6 +258,12 @@ export class Renderer {
                     binding: 5,
                     resource: {
                         buffer: this.sphere_buffer
+                    }
+                },
+                {
+                    binding: 6,
+                    resource: {
+                        buffer: this.material_buffer
                     }
                 }
             ]
@@ -340,9 +358,15 @@ export class Renderer {
         this.device.queue.writeBuffer(this.camera_buffer, 0, camera.cameraBufferValues);
 
         //Sphere Data
-        let clearBuffer = new ArrayBuffer(this.sphere_buffer.size);
+        //TODO Do not need to write this every frame
+        var clearBuffer = new ArrayBuffer(this.sphere_buffer.size);
         this.device.queue.writeBuffer(this.sphere_buffer, 0, clearBuffer);
         this.device.queue.writeBuffer(this.sphere_buffer, 0, scene.spheres_data, 0, scene.spheres_data.byteLength);
+
+        //Material Data
+        clearBuffer = new ArrayBuffer(this.material_buffer.size);
+        this.device.queue.writeBuffer(this.material_buffer, 0, clearBuffer);
+        this.device.queue.writeBuffer(this.material_buffer, 0, scene.materials_data, 0, scene.materials_data.byteLength);
 
         //Scene Data
         this.scene_views.sphere_count[0] = scene.spheres_count;

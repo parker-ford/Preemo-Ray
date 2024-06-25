@@ -33,7 +33,7 @@ struct Time {
 struct Sphere {
     pos: vec3<f32>,
     radius: f32,
-    color: vec3<f32>,
+    material_index: u32,
 };
 
 struct Scene {
@@ -44,13 +44,23 @@ struct SphereData {
     spheres: array<Sphere>
 }
 
+struct Material {
+    color: vec3<f32>,
+    emissive_strength: f32,
+    emissive_color: vec3<f32>,
+}
+
+struct MaterialData {
+    materials: array<Material>
+}
+
 struct HitInfo {
     hit: bool,
     t: f32,
     p: vec3<f32>,
     normal: vec3<f32>,
     color: vec3<f32>,
-    // material: Material,
+    material: Material,
 };
 
 
@@ -81,6 +91,7 @@ const s16: array<vec2<f32>, 16> = array<vec2<f32>, 16>(vec2<f32>(0.5625, 0.4375)
 @group(0) @binding(3) var<uniform> time: Time;
 @group(0) @binding(4) var<uniform> scene: Scene;
 @group(0) @binding(5) var<storage, read> sphere_data: SphereData;
+@group(0) @binding(6) var<storage, read> material_data: MaterialData;
 
 fn pcg_hash(input: u32) -> u32{
     var state: u32 = input;
@@ -227,7 +238,8 @@ fn hit_sphere(sphere: Sphere, ray: Ray) -> HitInfo {
     } else {
         hit_info.normal = -outward_normal;
     }
-    // hit_info.normal = (hit_info.p - sphere.pos) / sphere.radius;
+    
+    hit_info.material = material_data.materials[sphere.material_index];
 
 
     return hit_info;
@@ -253,35 +265,32 @@ fn intersect_ray(ray: Ray) -> HitInfo{
 
 fn ray_color(ray: Ray) -> vec3<f32> {
 
-
     let max_bounces: u32 = 10u;
     var current_ray: Ray = ray;
-    var accumulated_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
+    var ray_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
+    var incoming_light: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
+
     for(var i: u32 = 0u; i < max_bounces; i = i + 1u){
         var hit_info: HitInfo = intersect_ray(current_ray);
         if(hit_info.hit && hit_info.t > 0.0){
-            accumulated_color = accumulated_color * 0.5;
-            // var new_dir: vec3<f32> = generate_hemisphere_vec3(current_ray.id, time.frame_number + 1u, hit_info.normal);
+
             var new_dir: vec3<f32> = hit_info.normal + generate_random_unit_vec3(current_ray.id, time.frame_number + 1u);
             current_ray.dir = new_dir;
             current_ray.pos = hit_info.p;
+
+            var emittedLight: vec3<f32> = hit_info.material.emissive_color * hit_info.material.emissive_strength;
+            incoming_light += emittedLight * ray_color;
+            ray_color *= hit_info.material.color;
+
         } else {
             var a = 0.5 * (current_ray.dir.y + 1.0);
-            accumulated_color *= (1.0-a)*vec3<f32>(1.0, 1.0, 1.0) + a*vec3<f32>(0.5, 0.7, 1.0);
+            ray_color *= (1.0-a)*vec3<f32>(1.0, 1.0, 1.0) + a*vec3<f32>(0.5, 0.7, 1.0);
             break;
         }
     }
 
-    return accumulated_color;
+    return incoming_light;
 
-    // var hit_info: HitInfo = intersect_ray(ray);
-    // if(hit_info.hit && hit_info.t > 0.0){
-    //     ray.dir = generate_hemisphere_vec3(ray.id, u32(time.elapsed_time * 1000.0), hit_info.normal);
-    //     return 0.5 * ray_color(ray);
-    // }
-    
-    // var a = 0.5 * (ray.dir.y + 1.0);
-    // return (1.0-a)*vec3<f32>(1.0, 1.0, 1.0) + a*vec3<f32>(0.5, 0.7, 1.0);
 }
 
 @compute @workgroup_size(1,1,1)
@@ -308,7 +317,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         pixel_color = pixel_color * weight + old_pixel_color.xyz * (1.0 - weight);
     }
 
-    if(time.frame_number < 20u){
+    if(time.frame_number < 1000000u){
         textureStore(color_buffer, screen_pos, vec4<f32>(pixel_color, 1.0));
     }
 }
