@@ -1,4 +1,3 @@
-// const INFINITY: f32 = bitcast<f32>(0x7F800000u);
 const INFINITY: f32 = 3.402823466e+38;
 const PI: f32 = 3.14159265359;
 
@@ -7,7 +6,6 @@ struct Ray {
     min: f32, //distance at which intersection testing begins
     dir: vec3<f32>, //direction (normalized)
     max: f32, //distance at which intersection testing ends
-    id: vec2<u32> //screen position TODO: Check if extra data leads to performance issues
 };
 
 struct Camera {
@@ -63,7 +61,6 @@ struct HitInfo {
     material: Material,
 };
 
-
 //Hardcoded subpixel offsets for super sampling according to DirectX MSAA for 1,2,4,8,16 samples
 //TODO: Look into 2,3 Halton sequence for desired number of sample offsets
 const s1: array<vec2<f32>, 1> = array<vec2<f32>, 1>(vec2<f32>(0.5, 0.5));
@@ -93,9 +90,9 @@ const s16: array<vec2<f32>, 16> = array<vec2<f32>, 16>(vec2<f32>(0.5625, 0.4375)
 @group(0) @binding(5) var<storage, read> sphere_data: SphereData;
 @group(0) @binding(6) var<storage, read> material_data: MaterialData;
 
-fn pcg_hash(input: u32) -> u32{
-    var state: u32 = input;
-    var word: u32 = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+fn pcg_hash(state_ptr: ptr<function, u32>) -> u32{
+    *state_ptr = (*state_ptr) * 747796405u + 2891336453u;
+    var word: u32 = (((*state_ptr) >> (((*state_ptr) >> 28u) + 4u)) ^ (*state_ptr)) * 277803737u;
     return (word >> 22u) ^ word;
 }
 
@@ -103,52 +100,26 @@ fn normalize_u32(input: u32) -> f32 {
     return f32(input) / 4294967295.0;
 }
 
-fn pos_to_seed(pos: vec2<u32>) -> u32 {
-    let seed1: u32 = pos.x * 2654435761u;
-    let seed2: u32 = pos.y * 2246822519u;
-    return (seed1 + seed2);
-    //return (seed1 ^ (seed2 << 16u)) | (seed2 >> 16u);
+//Returns a random float between 0 and 1 based on the current state of the seed
+fn next_random(state_ptr: ptr<function, u32>) -> f32 {
+    return normalize_u32(pcg_hash(state_ptr));
 }
 
-fn random_uniform(screen_pos: vec2<u32>, offset: u32) -> f32{
-    let seed: u32 = pos_to_seed(screen_pos);
-    return normalize_u32(pcg_hash(seed + offset));
+fn random_point_in_circle(state_ptr: ptr<function, u32>) -> vec2<f32> {
+    var theta: f32 = next_random(state_ptr) * 2.0 * PI;
+    var p: vec2<f32> = vec2<f32>(cos(theta), sin(theta));
+    return p * sqrt(next_random(state_ptr));
 }
 
-fn generate_random_vec2(pos: vec2<u32>, seed: u32) -> vec2<f32> {
-    var x: f32 = random_uniform(pos, seed);
-    var y: f32 = random_uniform(pos, 5507 * seed);
-    return vec2<f32>(x, y);
-}
-
-fn generate_random_vec3(pos: vec2<u32>, seed: u32) -> vec3<f32> {
-    var x: f32 = random_uniform(pos, seed);
-    var y: f32 = random_uniform(pos, 5507 * seed);
-    var z: f32 = random_uniform(pos, 7879 * seed);
+fn random_vec3(state_ptr: ptr<function, u32>) -> vec3<f32> {
+    var x: f32 = next_random(state_ptr);
+    var y: f32 = next_random(state_ptr);
+    var z: f32 = next_random(state_ptr);
     return vec3<f32>(x, y, z);
 }
 
-fn generate_random_unit_vec3(pos: vec2<u32>, seed: u32) -> vec3<f32> {
-    var random_vec: vec3<f32> = generate_random_vec3(pos, seed) * 2.0 - 1.0;
-    return normalize(random_vec);
-}
-
-fn generate_hemisphere_vec3(pos: vec2<u32>, seed: u32, normal: vec3<f32>) -> vec3<f32> {
-    let max_iterations: u32 = 100u;
-    for(var i: u32 = 0u; i < max_iterations; i = i + 1u){
-        var random_vec: vec3<f32> = generate_random_vec3(pos, seed + (1000u * i)) * 2.0 - 1.0;
-        if(length(random_vec) <= 1.0){
-            var random_vec_norm = normalize(random_vec);
-            if(dot(random_vec_norm, normal) > 0.0){
-                return random_vec_norm;
-            }
-            else{
-                return -random_vec_norm;
-            }
-        }
-    }
-
-    return vec3<f32>(0.0, 0.0, 0.0);
+fn random_direction(state_ptr: ptr<function, u32>) -> vec3<f32> {
+    return normalize(random_vec3(state_ptr) * 2.0 - 1.0);
 }
 
 fn generatePinholeRay(pixel: vec2<f32>, offset: vec2<f32>) -> Ray {
@@ -163,9 +134,9 @@ fn generatePinholeRay(pixel: vec2<f32>, offset: vec2<f32>) -> Ray {
     } else {
         aspect_scale = camera.image_size.y;
     }
-    // var direction: vec3<f32> = normalize(vec3<f32>( vec2<f32>(pixel.x, -pixel.y), -1.0));
     var direction: vec3<f32> = normalize(vec3<f32>(vec2<f32>(offset_pixel.x, -offset_pixel.y) * tan_half_angle / aspect_scale, -1.0));
     
+    //Create new ray at camera origin
     var ray: Ray;
     ray.pos = vec3<f32>(0.0, 0.0, 0.0);
     ray.dir = direction;
@@ -174,37 +145,9 @@ fn generatePinholeRay(pixel: vec2<f32>, offset: vec2<f32>) -> Ray {
     return ray;
 }
 
-// fn generateThinLensRay(pixel: vec2<f32>, lens_offset: vec2<f32>) -> Ray {
-//     var pinhole_ray: Ray = generatePinholeRay(pixel);
-
-//     var theta: f32 = lens_offset.x * 2.0 * PI;
-//     var radius: f32 = lens_offset.y;
-
-//     var u: f32 = cos(theta) * sqrt(radius);
-//     var v: f32 = sin(theta) * sqrt(radius);
-
-//     var focal_plane: f32 = (camera.image_plane_distance * camera.lens_focal_length) / (camera.image_plane_distance - camera.lens_focal_length);
-//     var focal_point: vec3<f32> = pinhole_ray.dir * (focal_plane / dot(pinhole_ray.dir, vec3<f32>(0.0, 0.0, -1.0)));
-
-//     //lens focal length vs focal length?
-//     var circle_of_confusion_radius: f32 = camera.lens_focal_length / (2.0 * camera.fstop);
-
-
-//     var origin: vec3<f32> = vec3<f32>(1.0, 0.0, 0.0) * (u * circle_of_confusion_radius) + vec3<f32>(0.0, 1.0, 0.0) * (v * circle_of_confusion_radius);
-
-//     var direction: vec3<f32> = normalize(focal_point - origin);
-
-//     var ray: Ray;
-//     ray.pos = origin;
-//     ray.dir = direction;
-//     ray.min = 0;
-//     ray.max = INFINITY;
-//     return ray;
-// }
-
 fn hit_sphere(sphere: Sphere, ray: Ray) -> HitInfo {
     var oc: vec3<f32> = sphere.pos - ray.pos;
-    var a: f32 = 1.0;
+    var a: f32 = dot(ray.dir, ray.dir);
     var h: f32 = dot(ray.dir, oc);
     var c: f32 = length(oc) * length(oc) - sphere.radius * sphere.radius;
     var discriminant: f32 = h * h - a * c;
@@ -231,6 +174,7 @@ fn hit_sphere(sphere: Sphere, ray: Ray) -> HitInfo {
     hit_info.t = root;
     hit_info.p = ray.pos + hit_info.t * ray.dir;
 
+
     var outward_normal: vec3<f32> = (hit_info.p - sphere.pos) / sphere.radius;
     var front_face: bool = dot(ray.dir, outward_normal) < 0.0;
     if(front_face){
@@ -241,11 +185,30 @@ fn hit_sphere(sphere: Sphere, ray: Ray) -> HitInfo {
     
     hit_info.material = material_data.materials[sphere.material_index];
 
-
     return hit_info;
+
+    // var oc: vec3<f32> = ray.pos - sphere.pos;
+    // var a: f32 = dot(ray.dir, ray.dir);
+    // var b: f32 = 2.0 * dot(oc, ray.dir);
+    // var c: f32 = dot(oc, oc) - sphere.radius * sphere.radius;
+    // var discriminant: f32 = b * b - 4.0 * a * c;
+
+    // var hit_info: HitInfo;
+
+    // if(discriminant >= 0.0){
+    //     var dist: f32 = (-b - sqrt(discriminant)) / (2.0 * a);
+
+    //     if(dist >= ray.min && dist <= ray.max){
+    //         hit_info.hit = true;
+    //         hit_info.t = dist;
+    //         hit_info.p = ray.pos + dist * ray.dir;
+    //         hit_info.normal = (hit_info.p - sphere.pos) / sphere.radius;
+    //         hit_info.material = material_data.materials[sphere.material_index];
+    //     }
+    // }
+
+    // return hit_info;
 }
-
-
 
 fn intersect_ray(ray: Ray) -> HitInfo{
     var closest_hit: HitInfo;
@@ -263,21 +226,22 @@ fn intersect_ray(ray: Ray) -> HitInfo{
     return closest_hit;
 }
 
-fn ray_color(ray: Ray) -> vec3<f32> {
+fn trace_ray(ray: Ray, state_ptr: ptr<function, u32>) -> vec3<f32> {
 
-    let max_bounces: u32 = 10u;
     var current_ray: Ray = ray;
+    let max_bounces: u32 = 10u;
     var ray_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
     var incoming_light: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
 
-    for(var i: u32 = 0u; i < max_bounces; i = i + 1u){
+    for(var i: u32 = 0u; i <= max_bounces; i = i + 1u){
         var hit_info: HitInfo = intersect_ray(current_ray);
-        if(hit_info.hit && hit_info.t > 0.0){
 
-            var new_dir: vec3<f32> = hit_info.normal + generate_random_unit_vec3(current_ray.id, time.frame_number + 1u);
-            current_ray.dir = new_dir;
+        if(hit_info.hit){
+            //Find new ray position and direction
             current_ray.pos = hit_info.p;
+            current_ray.dir = normalize(hit_info.normal + random_direction(state_ptr));
 
+            //Calculate incoming light
             var emittedLight: vec3<f32> = hit_info.material.emissive_color * hit_info.material.emissive_strength;
             incoming_light += emittedLight * ray_color;
             ray_color *= hit_info.material.color;
@@ -285,6 +249,7 @@ fn ray_color(ray: Ray) -> vec3<f32> {
         } else {
             var a = 0.5 * (current_ray.dir.y + 1.0);
             ray_color *= (1.0-a)*vec3<f32>(1.0, 1.0, 1.0) + a*vec3<f32>(0.5, 0.7, 1.0);
+            // incoming_light += ray_color;
             break;
         }
     }
@@ -296,28 +261,31 @@ fn ray_color(ray: Ray) -> vec3<f32> {
 @compute @workgroup_size(1,1,1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
+    //Determine Screen Position and Pixel Seed
     let screen_pos: vec2<u32> = vec2<u32>(u32(global_id.x), u32(global_id.y));
     let pixel: vec2<f32> = vec2<f32>(f32(screen_pos.x), f32(screen_pos.y)) * 2.0 - camera.image_size;
+    let pixel_index: u32 = screen_pos.y * u32(camera.image_size.x) + screen_pos.x;
+    var<function> pixel_seed: u32 = pixel_index + time.frame_number * 902347u;
 
-    // var pixel_color: vec3<f32> = vec3<f32>(generate_random_offset(screen_pos), 0.0);
-
-    var ray: Ray = generatePinholeRay(pixel, generate_random_vec2(screen_pos, (time.frame_number + 1u)));
-
+    //Generate Ray and Transform to World Space
+    var ray: Ray = generatePinholeRay(pixel, random_point_in_circle(&pixel_seed));
     ray.pos = (camera.camera_to_world_matrix * vec4<f32>(ray.pos, 1.0)).xyz;
     ray.dir = (camera.camera_to_world_matrix * vec4<f32>(ray.dir, 0.0)).xyz;
-    ray.id = screen_pos;
 
-    var pixel_color: vec3<f32> = ray_color(ray);
-    // var pixel_color: vec3<f32> = generate_hemisphere_vec3;
+    //Calculate Pixel Color
+    var pixel_color: vec3<f32> = trace_ray(ray, &pixel_seed);
+    // var pixel_color: vec3<f32> = vec3<f32>(length(random_direction(&pixel_seed)));
 
-    if(time.frame_number != 0u){
+    //Combine with previous frames
+    if(time.frame_number != 1u){
         let frame_f32: f32 = f32(time.frame_number);
-        let weight: f32 = 1.0 / frame_f32;
+        let weight: f32 = 1.0 / (frame_f32 + 1.0);
         let old_pixel_color: vec4<f32> = textureLoad(color_buffer_read, screen_pos);
-        pixel_color = pixel_color * weight + old_pixel_color.xyz * (1.0 - weight);
+        pixel_color = saturate(pixel_color * weight + old_pixel_color.xyz * (1.0 - weight));
     }
 
-    if(time.frame_number < 1000000u){
+    //Store Pixel Color
+    // if(time.frame_number < 1000u){
         textureStore(color_buffer, screen_pos, vec4<f32>(pixel_color, 1.0));
-    }
+    // }
 }
