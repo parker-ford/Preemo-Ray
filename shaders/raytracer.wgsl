@@ -117,6 +117,11 @@ fn generate_random_vec3(pos: vec2<u32>, seed: u32) -> vec3<f32> {
     return vec3<f32>(x, y, z);
 }
 
+fn generate_random_unit_vec3(pos: vec2<u32>, seed: u32) -> vec3<f32> {
+    var random_vec: vec3<f32> = generate_random_vec3(pos, seed) * 2.0 - 1.0;
+    return normalize(random_vec);
+}
+
 fn generate_hemisphere_vec3(pos: vec2<u32>, seed: u32, normal: vec3<f32>) -> vec3<f32> {
     let max_iterations: u32 = 100u;
     for(var i: u32 = 0u; i < max_iterations; i = i + 1u){
@@ -256,7 +261,8 @@ fn ray_color(ray: Ray) -> vec3<f32> {
         var hit_info: HitInfo = intersect_ray(current_ray);
         if(hit_info.hit && hit_info.t > 0.0){
             accumulated_color = accumulated_color * 0.5;
-            var new_dir: vec3<f32> = generate_hemisphere_vec3(current_ray.id, time.frame_number + 1u, hit_info.normal);
+            // var new_dir: vec3<f32> = generate_hemisphere_vec3(current_ray.id, time.frame_number + 1u, hit_info.normal);
+            var new_dir: vec3<f32> = hit_info.normal + generate_random_unit_vec3(current_ray.id, time.frame_number + 1u);
             current_ray.dir = new_dir;
             current_ray.pos = hit_info.p;
         } else {

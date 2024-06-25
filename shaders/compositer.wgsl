@@ -34,5 +34,8 @@ fn vert_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 
 @fragment
 fn fragment_main(fragData: VertexOutput) -> @location(0) vec4<f32>{
-    return textureSample(color_buffer, screen_sampler, fragData.uv);
+    var sample: vec4<f32> = textureSample(color_buffer, screen_sampler, fragData.uv);
+
+    //Gamma Correction
+    return sqrt(sample); 
 }
