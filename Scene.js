@@ -14,6 +14,12 @@ export class Scene {
         this.spheres_data = new ArrayBuffer(0);
         this.sphere_size = 32;
 
+        //Triangles
+        this.triangles = [];
+        this.triangles_count = 0;
+        this.triangles_data = new ArrayBuffer(0);
+        this.triangle_size = 32;
+
         //Materials
         this.materials = [];
         this.materials_count = 0;

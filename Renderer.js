@@ -85,6 +85,13 @@ export class Renderer {
 
     async createAssets() {
 
+        //Image Buffer
+        this.image_buffer = this.device.createBuffer({
+            label: 'image_buffer',
+            size: Float32Array.BYTES_PER_ELEMENT * 4 * this.canvas.width * this.canvas.height,
+            usage: GPUBufferUsage.STORAGE
+        });
+
         //Write Buffer
         this.color_buffer = this.device.createTexture({
             label: 'color_buffer',
@@ -220,6 +227,14 @@ export class Renderer {
                         type: 'read-only-storage',
                         hasDynamicOffset: false
                     }
+                },
+                {
+                    binding: 7,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {
+                        // type: ''
+                        type: 'storage',
+                    }
                 }
             ]
         });
@@ -264,6 +279,12 @@ export class Renderer {
                     binding: 6,
                     resource: {
                         buffer: this.material_buffer
+                    }
+                },
+                {
+                    binding: 7,
+                    resource: {
+                        buffer: this.image_buffer
                     }
                 }
             ]
