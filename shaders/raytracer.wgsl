@@ -1,6 +1,9 @@
 const INFINITY: f32 = 3.402823466e+38;
 const PI: f32 = 3.14159265359;
 
+const MATERIAL_LAMBERTIAN: u32 = 0u;
+const MATERIAL_METAL: u32 = 1u;
+
 struct Ray {
     pos: vec3<f32>, //origin
     min: f32, //distance at which intersection testing begins
@@ -33,9 +36,9 @@ struct SphereData {
 }
 
 struct Material {
-    color: vec3<f32>,
-    emissive_strength: f32,
-    emissive_color: vec3<f32>,
+    attenuation: vec3<f32>,
+    metalic_fuzz: f32,
+    material_flag: u32,
 }
 
 struct MaterialData {
@@ -50,6 +53,11 @@ struct HitInfo {
     color: vec3<f32>,
     material: Material,
 };
+
+struct ScatterInfo {
+    ray: Ray,
+    attenuation: vec3<f32>,
+}
 
 //Hardcoded subpixel offsets for super sampling according to DirectX MSAA for 1,2,4,8,16 samples
 //TODO: Look into 2,3 Halton sequence for desired number of sample offsets
@@ -189,6 +197,41 @@ fn intersect_ray(ray: Ray) -> HitInfo{
     return closest_hit;
 }
 
+fn scatter(ray: Ray, hit_info: HitInfo, state_ptr: ptr<function, u32>) -> ScatterInfo{
+
+    var scatter_info: ScatterInfo;
+
+    var scatter_direction: vec3<f32> = hit_info.normal;
+
+    switch hit_info.material.material_flag {
+        case MATERIAL_LAMBERTIAN: {
+            scatter_direction = normalize(hit_info.normal + random_direction(state_ptr));
+            break;
+        }
+        case MATERIAL_METAL: {
+            var reflected_direction: vec3<f32> = reflect(ray.dir, hit_info.normal);
+            scatter_direction = normalize(reflected_direction + (hit_info.material.metalic_fuzz * random_direction(state_ptr)));
+            break;
+        }
+        default: {
+          break;
+        }
+    }
+
+    //Catch near zero scatter direction
+    if(length(scatter_direction) < 1e-8){
+        scatter_direction = hit_info.normal;
+    }
+
+    //Setup Scattered Ray
+    scatter_info.ray = ray;
+    scatter_info.ray.pos = hit_info.p;
+    scatter_info.ray.dir = scatter_direction;
+    scatter_info.attenuation = hit_info.material.attenuation;
+
+    return scatter_info;
+}
+
 fn trace_ray(ray: Ray, state_ptr: ptr<function, u32>) -> vec3<f32> {
 
     var current_ray: Ray = ray;
@@ -199,27 +242,19 @@ fn trace_ray(ray: Ray, state_ptr: ptr<function, u32>) -> vec3<f32> {
     for(var i: u32 = 0u; i <= max_bounces; i = i + 1u){
         var hit_info: HitInfo = intersect_ray(current_ray);
 
-        if(hit_info.hit){
-            //Find new ray position and direction
-            current_ray.pos = hit_info.p;
-            current_ray.dir = normalize(hit_info.normal + random_direction(state_ptr));
-
-            //Calculate incoming light
-            var emittedLight: vec3<f32> = hit_info.material.emissive_color * hit_info.material.emissive_strength;
-            incoming_light += emittedLight * ray_color;
-            ray_color *= hit_info.material.color;
+        if(hit_info.hit){ 
+            var scatter_info: ScatterInfo = scatter(current_ray, hit_info, state_ptr);
+            current_ray = scatter_info.ray;
+            ray_color *= scatter_info.attenuation;
 
         } else {
-           // var a = 0.5 * (current_ray.dir.y + 1.0);
-            //ray_color *= (1.0-a)*vec3<f32>(1.0, 1.0, 1.0) + a*vec3<f32>(0.5, 0.7, 1.0);
-            // incoming_light += ray_color;
-            incoming_light += environment_light(current_ray) * ray_color;
+            var a = 0.5 * (current_ray.dir.y + 1.0);
+            ray_color *= (1.0-a)*vec3<f32>(1.0, 1.0, 1.0) + a*vec3<f32>(0.5, 0.7, 1.0);
             break;
         }
     }
 
-    return incoming_light;
-
+    return ray_color;
 }
 
 @compute @workgroup_size(1,1,1)

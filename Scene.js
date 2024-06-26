@@ -85,17 +85,17 @@ export class Scene {
             //Update Materials
             var material_offset = 0;
             this.materials.forEach(material => {
-                const MaterialDataValues = new ArrayBuffer(this.material_size);
-                const MaterialDataViews = {
-                    color: new Float32Array(MaterialDataValues, 0, 3),
-                    emissive_strength: new Float32Array(MaterialDataValues, 12, 1),
-                    emissive_color: new Float32Array(MaterialDataValues, 16, 3),
+                const MaterialValues = new ArrayBuffer(this.material_size);
+                const MaterialViews = {
+                    attenuation: new Float32Array(MaterialValues, 0, 3),
+                    metalic_fuzz: new Float32Array(MaterialValues, 12, 1),
+                    material_flag: new Uint32Array(MaterialValues, 16, 1),
                 }
-                MaterialDataViews.color.set(material.color);
-                MaterialDataViews.emissive_strength[0] = material.emissive_strength;
-                MaterialDataViews.emissive_color.set(material.emissive_color);
+                MaterialViews.attenuation.set(material.attenuation);
+                MaterialViews.metalic_fuzz[0] = material.metalic_fuzz;
+                MaterialViews.material_flag[0] = material.material_flag;
 
-                const materialView = new Uint8Array(MaterialDataValues);
+                const materialView = new Uint8Array(MaterialValues);
                 const allMaterialsView = new Uint8Array(this.materials_data, material_offset * this.material_size, this.material_size);
                 allMaterialsView.set(materialView);
                 material_offset++;
