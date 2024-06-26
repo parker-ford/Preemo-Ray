@@ -215,12 +215,12 @@ fn scatter(ray: Ray, hit_info: HitInfo, state_ptr: ptr<function, u32>) -> Scatte
 
     switch hit_info.material.material_flag {
         case MATERIAL_LAMBERTIAN: {
-            scatter_direction = normalize(hit_info.normal + random_direction(state_ptr));
+            scatter_direction = hit_info.normal + random_direction(state_ptr);
             break;
         }
         case MATERIAL_METAL: {
             var reflected_direction: vec3<f32> = reflect(ray.dir, hit_info.normal);
-            scatter_direction = normalize(reflected_direction + (hit_info.material.metalic_fuzz * random_direction(state_ptr)));
+            scatter_direction = reflected_direction + (hit_info.material.metalic_fuzz * random_direction(state_ptr));
             break;
         }
         case MATERIAL_DIELECTRIC: {
@@ -243,9 +243,6 @@ fn scatter(ray: Ray, hit_info: HitInfo, state_ptr: ptr<function, u32>) -> Scatte
                 //Can Refract
                 scatter_direction = refract(ray.dir, hit_info.normal, ri);
             }
-
-            //Maybe Unneccesary?
-            scatter_direction = normalize(scatter_direction);
             break;
         }
         default: {
