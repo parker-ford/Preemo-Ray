@@ -91,15 +91,12 @@ const s16: array<vec2<f32>, 16> = array<vec2<f32>, 16>(vec2<f32>(0.5625, 0.4375)
                                                     vec2<f32>(0.875, 0.0625), vec2<f32>(0.0625, 0.0));
 
 
-// @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, read>;
-@group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
-@group(0) @binding(1) var color_buffer_read: texture_storage_2d<rgba8unorm, read>;
-@group(0) @binding(2) var<uniform> camera: Camera;
-@group(0) @binding(3) var<uniform> time: Time;
-@group(0) @binding(4) var<uniform> scene: Scene;
-@group(0) @binding(5) var<storage, read> sphere_data: SphereData;
-@group(0) @binding(6) var<storage, read> material_data: MaterialData;
-@group(0) @binding(7) var<storage, read_write> image_buffer: array<vec3f>;
+@group(0) @binding(0) var<storage, read_write> image_buffer: array<vec3f>;
+@group(0) @binding(1) var<uniform> camera: Camera;
+@group(0) @binding(2) var<uniform> time: Time;
+@group(0) @binding(3) var<uniform> scene: Scene;
+@group(0) @binding(4) var<storage, read> sphere_data: SphereData;
+@group(0) @binding(5) var<storage, read> material_data: MaterialData;
 
 fn pcg_hash(state_ptr: ptr<function, u32>) -> u32{
     *state_ptr = (*state_ptr) * 747796405u + 2891336453u;
@@ -334,12 +331,12 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     //Determine Screen Position and Pixel Seed
     let screen_pos: vec2<u32> = vec2<u32>(u32(global_id.x), u32(global_id.y));
-    let pixel: vec2<f32> = vec2<f32>(f32(screen_pos.x), f32(screen_pos.y)) * 2.0 - camera.image_size;
+    let pixel_pos: vec2<f32> = vec2<f32>(f32(screen_pos.x), f32(screen_pos.y)) * 2.0 - camera.image_size;
     let pixel_index: u32 = screen_pos.y * u32(camera.image_size.x) + screen_pos.x;
     var<function> pixel_seed: u32 = pixel_index + time.frame_number * 902347u;
 
     //Generate Ray and Transform to World Space
-    var ray: Ray = generatePinholeRay(pixel, random_point_in_circle(&pixel_seed));
+    var ray: Ray = generatePinholeRay(pixel_pos, random_point_in_circle(&pixel_seed));
     ray.pos = (camera.camera_to_world_matrix * vec4<f32>(ray.pos, 1.0)).xyz;
     ray.dir = (camera.camera_to_world_matrix * vec4<f32>(ray.dir, 0.0)).xyz;
 
@@ -351,18 +348,28 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
     pixel_color /= f32(rays_per_pixel);
 
-    //Combine with previous frames
-    if(time.frame_number != 1u){
-        let frame_f32: f32 = f32(time.frame_number);
-        let weight: f32 = 1.0 / (frame_f32 + 1.0);
-        let old_pixel_color: vec4<f32> = textureLoad(color_buffer_read, screen_pos);
-        pixel_color = saturate(pixel_color * weight + old_pixel_color.xyz * (1.0 - weight));
-    }
-
-    var idx = global_id.x + global_id.y * u32(camera.image_size.x);
 
     //Store Pixel Color
-    // if(time.frame_number < 1000u){
-        textureStore(color_buffer, screen_pos, vec4<f32>(pixel_color, 1.0));
+    var pixel: vec3<f32> = image_buffer[pixel_index];
+
+    if(time.frame_number == 0u){
+        pixel = vec3<f32>(0.0, 0.0, 0.0);
+    } 
+
+    pixel += pixel_color;
+    image_buffer[pixel_index] = pixel;
+
+
+    //Combine with previous frames
+    // if(time.frame_number != 1u){
+    //     let frame_f32: f32 = f32(time.frame_number);
+    //     let weight: f32 = 1.0 / (frame_f32 + 1.0);
+    //     let old_pixel_color: vec4<f32> = textureLoad(color_buffer_read, screen_pos);
+    //     pixel_color = saturate(pixel_color * weight + old_pixel_color.xyz * (1.0 - weight));
     // }
+
+    // //Store Pixel Color
+    // // if(time.frame_number < 1000u){
+    //     textureStore(color_buffer, screen_pos, vec4<f32>(pixel_color, 1.0));
+    // // }
 }

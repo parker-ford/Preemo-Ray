@@ -18,7 +18,7 @@ export class Renderer {
         this.commandBuffers = [];
         this.renderFunctions = [];
 
-        this.frame_number = 1;
+        this.frame_number = 0;
 
         //Assets
         this.color_buffer = null;
@@ -92,32 +92,6 @@ export class Renderer {
             usage: GPUBufferUsage.STORAGE
         });
 
-        //Write Buffer
-        this.color_buffer = this.device.createTexture({
-            label: 'color_buffer',
-            size : {
-                width: this.canvas.width,
-                height: this.canvas.height,
-            },
-            format: 'rgba8unorm',
-            usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC |GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING 
-        });
-
-        this.color_buffer_view = this.color_buffer.createView();
-
-        //Read Buffer
-        this.color_buffer_read = this.device.createTexture({
-            label: 'color_buffer_read',
-            size : {
-                width: this.canvas.width,
-                height: this.canvas.height,
-            },
-            format: 'rgba8unorm',
-            usage: GPUTextureUsage.COPY_DST |GPUTextureUsage.COPY_SRC | GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
-        });
-
-        this.color_buffer_read_view = this.color_buffer_read.createView();
-
         const samplerDescriptor = {
             addressModeU: 'repeat',
             addressModeV: 'repeat',
@@ -176,19 +150,15 @@ export class Renderer {
                 {
                     binding: 0,
                     visibility: GPUShaderStage.COMPUTE,
-                    storageTexture: {
-                        access: 'write-only',
-                        format: 'rgba8unorm',
-                        viewDimension: '2d'
+                    buffer: {
+                        type: 'storage',
                     }
                 },
                 {
                     binding: 1,
                     visibility: GPUShaderStage.COMPUTE,
-                    storageTexture: {
-                        access: 'read-only',
-                        format: 'rgba8unorm',
-                        viewDimension: '2d'
+                    buffer: {
+                        type: 'uniform'
                     }
                 },
                 {
@@ -209,7 +179,8 @@ export class Renderer {
                     binding: 4,
                     visibility: GPUShaderStage.COMPUTE,
                     buffer: {
-                        type: 'uniform'
+                        type: 'read-only-storage',
+                        hasDynamicOffset: false
                     }
                 },
                 {
@@ -218,22 +189,6 @@ export class Renderer {
                     buffer: {
                         type: 'read-only-storage',
                         hasDynamicOffset: false
-                    }
-                },
-                {
-                    binding: 6,
-                    visibility: GPUShaderStage.COMPUTE,
-                    buffer: {
-                        type: 'read-only-storage',
-                        hasDynamicOffset: false
-                    }
-                },
-                {
-                    binding: 7,
-                    visibility: GPUShaderStage.COMPUTE,
-                    buffer: {
-                        // type: ''
-                        type: 'storage',
                     }
                 }
             ]
@@ -245,46 +200,38 @@ export class Renderer {
             entries: [
                 {
                     binding: 0,
-                    resource: this.color_buffer_view
+                    resource: {
+                        buffer: this.image_buffer
+                    }
                 },
                 {
                     binding: 1,
-                    resource: this.color_buffer_read_view
-                },
-                {
-                    binding: 2,
                     resource: {
                         buffer: this.camera_buffer
                     }
                 },
                 {
-                    binding: 3,
+                    binding: 2,
                     resource: {
                         buffer: this.time_buffer
                     }
                 },
                 {
-                    binding: 4,
+                    binding: 3,
                     resource: {
                         buffer: this.scene_buffer
                     }
                 },
                 {
-                    binding: 5,
+                    binding: 4,
                     resource: {
                         buffer: this.sphere_buffer
                     }
                 },
                 {
-                    binding: 6,
+                    binding: 5,
                     resource: {
                         buffer: this.material_buffer
-                    }
-                },
-                {
-                    binding: 7,
-                    resource: {
-                        buffer: this.image_buffer
                     }
                 }
             ]
@@ -311,13 +258,24 @@ export class Renderer {
                 {
                     binding: 0,
                     visibility: GPUShaderStage.FRAGMENT,
-                    sampler: {}
+                    buffer: {
+                        type: 'storage',
+                    }
                 },
                 {
                     binding: 1,
                     visibility: GPUShaderStage.FRAGMENT,
-                    texture: {}
-                }
+                    buffer: {
+                        type: 'uniform'
+                    }
+                },
+                {
+                    binding: 2,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    buffer: {
+                        type: 'uniform'
+                    }
+                },
             ]
         })
 
@@ -327,11 +285,21 @@ export class Renderer {
             entries: [
                 {
                     binding: 0,
-                    resource: this.sampler
+                    resource: {
+                        buffer: this.image_buffer
+                    }
                 },
                 {
                     binding: 1,
-                    resource: this.color_buffer_view
+                    resource: {
+                        buffer: this.camera_buffer
+                    }
+                },
+                {
+                    binding: 2,
+                    resource: {
+                        buffer: this.time_buffer
+                    }
                 }
             ]
         });
@@ -405,16 +373,6 @@ export class Renderer {
         ray_trace_pass.setBindGroup(0, this.ray_tracing_bind_group);
         ray_trace_pass.dispatchWorkgroups(this.canvas.width, this.canvas.height, 1);
         ray_trace_pass.end();
-
-        commandEncoder.copyTextureToTexture(
-            { texture: this.color_buffer }, 
-            { texture: this.color_buffer_read }, 
-            {
-                width: this.canvas.width,
-                height: this.canvas.height,
-                depthOrArrayLayers: 1,
-            }
-        );
 
         const texture_view = this.context.getCurrentTexture().createView();
         const render_pass = commandEncoder.beginRenderPass({
