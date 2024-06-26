@@ -1,5 +1,7 @@
 import raytracer_shader from './shaders/raytracer.wgsl?raw';
+import random_shader from './shaders/random.wgsl?raw';
 import compositer_shader from './shaders/compositer.wgsl?raw';
+import common_shader from './shaders/common.wgsl?raw';
 import { Time } from './Time.js';
 
 export class Renderer {
@@ -143,6 +145,25 @@ export class Renderer {
         })
     }
 
+    getRayTracingShaderCode(){
+        const shader_code = `
+            ${common_shader}
+            ${random_shader}
+            ${raytracer_shader}
+        `
+
+        return shader_code;
+    }
+
+    getCompositerShaderCode(){
+        const shader_code = `
+            ${common_shader}
+            ${compositer_shader}
+        `
+
+        return shader_code;
+    }
+
     async createPipeline() {
         const ray_tracing_bind_group_layout = this.device.createBindGroupLayout({
             label: 'ray_tracing_bind_group_layout',
@@ -246,7 +267,7 @@ export class Renderer {
             layout: ray_tracing_pipeline_layout,
             compute: {
                 module: this.device.createShaderModule({
-                    code: raytracer_shader
+                    code: this.getRayTracingShaderCode()
                 }),
                 entryPoint: 'main'
             }
@@ -313,13 +334,13 @@ export class Renderer {
             layout: compositer_pipeline_layout,
             vertex: {
                 module: this.device.createShaderModule({
-                    code: compositer_shader
+                    code: this.getCompositerShaderCode()
                 }),
                 entryPoint: 'vert_main'
             },
             fragment: {
                 module: this.device.createShaderModule({
-                    code: compositer_shader
+                    code: this.getCompositerShaderCode()
                 }),
                 entryPoint: 'fragment_main',
                 targets: [

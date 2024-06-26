@@ -8,26 +8,6 @@ struct Ray {
     max: f32, //distance at which intersection testing ends
 };
 
-struct Camera {
-    camera_to_world_matrix: mat4x4<f32>, //camera to world matrix
-    fov_angle: f32, //edge to eedge field of view angle in radians
-    fov_direction: u32, //0 = horizontal, 1 = vertical 2 = diagonal
-    image_size: vec2<f32>, //stored as float to avoid conversions
-    panini_distance: f32, //center of projection from cylinder to plane
-    panini_vertical_compression: f32, //0-1 value to force straightening of horizontal lines. 0 = no straightening 1 = full straightening
-    camera_fov_distance: f32, //scalar field of view in m, used for orthographic projection
-    lens_focal_length: f32, //lens focal length in m
-    fstop: f32, //ratio of focal legnth to apeture diameter,
-    image_plane_distance: f32, //distance from camera to image plane,
-    clip_near: f32, //near clipping plane
-    clip_far: f32, //far clipping plane
-}
-
-struct Time {
-    elapsed_time: f32,
-    frame_number: u32
-}
-
 struct Sphere {
     pos: vec3<f32>,
     radius: f32,
@@ -98,130 +78,47 @@ const s16: array<vec2<f32>, 16> = array<vec2<f32>, 16>(vec2<f32>(0.5625, 0.4375)
 @group(0) @binding(4) var<storage, read> sphere_data: SphereData;
 @group(0) @binding(5) var<storage, read> material_data: MaterialData;
 
-fn pcg_hash(state_ptr: ptr<function, u32>) -> u32{
-    *state_ptr = (*state_ptr) * 747796405u + 2891336453u;
-    var word: u32 = (((*state_ptr) >> (((*state_ptr) >> 28u) + 4u)) ^ (*state_ptr)) * 277803737u;
-    return (word >> 22u) ^ word;
-}
-
-fn normalize_u32(input: u32) -> f32 {
-    return f32(input) / 4294967295.0;
-}
-
-//Returns a random float between 0 and 1 based on the current state of the seed
-fn next_random(state_ptr: ptr<function, u32>) -> f32 {
-    return normalize_u32(pcg_hash(state_ptr));
-}
-
-fn random_normal_distribution(state_ptr: ptr<function, u32>) -> f32 {
-    let theta: f32 = 2.0 * PI * next_random(state_ptr);
-    let rho: f32 = sqrt(-2.0 * log(next_random(state_ptr)));
-    return rho * cos(theta);
-}
-
-fn random_point_in_circle(state_ptr: ptr<function, u32>) -> vec2<f32> {
-    var theta: f32 = next_random(state_ptr) * 2.0 * PI;
-    var p: vec2<f32> = vec2<f32>(cos(theta), sin(theta));
-    return p * sqrt(next_random(state_ptr));
-}
-
-fn random_vec3(state_ptr: ptr<function, u32>) -> vec3<f32> {
-    var x: f32 = random_normal_distribution(state_ptr);
-    var y: f32 = random_normal_distribution(state_ptr);
-    var z: f32 = random_normal_distribution(state_ptr);
-    return vec3<f32>(x, y, z);
-}
-
-fn random_direction(state_ptr: ptr<function, u32>) -> vec3<f32> {
-    return normalize(random_vec3(state_ptr) * 2.0 - 1.0);
-}
-
-fn generatePinholeRay(pixel: vec2<f32>, offset: vec2<f32>) -> Ray {
-
-    //Random Offset
-    var offset_pixel: vec2<f32> = pixel + (offset * 2.0 - 1.0);
-
-    var tan_half_angle: f32 = tan(camera.fov_angle / 2.0);
-    var aspect_scale: f32;
-    if (camera.fov_direction == 0u) {
-        aspect_scale = camera.image_size.x;
-    } else {
-        aspect_scale = camera.image_size.y;
-    }
-    var direction: vec3<f32> = normalize(vec3<f32>(vec2<f32>(offset_pixel.x, -offset_pixel.y) * tan_half_angle / aspect_scale, -1.0));
-    
-    //Create new ray at camera origin
-    var ray: Ray;
-    ray.pos = vec3<f32>(0.0, 0.0, 0.0);
-    ray.dir = direction;
-    ray.min = camera.clip_near;
-    ray.max = camera.clip_far;
-    return ray;
-}
-
 fn hit_sphere(sphere: Sphere, ray: Ray) -> HitInfo {
-    // var oc: vec3<f32> = sphere.pos - ray.pos;
-    // var a: f32 = dot(ray.dir, ray.dir);
-    // var h: f32 = dot(ray.dir, oc);
-    // var c: f32 = length(oc) * length(oc) - sphere.radius * sphere.radius;
-    // var discriminant: f32 = h * h - a * c;
-
-    // var hit_info: HitInfo;
-
-    // if(discriminant < 0.0){
-    //     hit_info.hit = false;
-    //     return hit_info;
-    // }
-
-    // var sqrtd = sqrt(discriminant);
-
-    // var root = (h - sqrtd) / a;
-    // if(root <= ray.min || root >= ray.max){
-    //     root = (h + sqrtd) / a;
-    //     if(root <= ray.min || root >= ray.max){
-    //         hit_info.hit = false;
-    //         return hit_info;
-    //     }
-    // }
-
-    // hit_info.hit = true;
-    // hit_info.t = root;
-    // hit_info.p = ray.pos + hit_info.t * ray.dir;
-
-
-    // var outward_normal: vec3<f32> = (hit_info.p - sphere.pos) / sphere.radius;
-    // var front_face: bool = dot(ray.dir, outward_normal) < 0.0;
-    // if(front_face){
-    //     hit_info.normal = outward_normal;
-    // } else {
-    //     hit_info.normal = -outward_normal;
-    // }
-    
-    // hit_info.material = material_data.materials[sphere.material_index];
-
-    // return hit_info;
-
-    var oc: vec3<f32> = ray.pos - sphere.pos;
+    var oc: vec3<f32> = sphere.pos - ray.pos;
     var a: f32 = dot(ray.dir, ray.dir);
-    var b: f32 = 2.0 * dot(oc, ray.dir);
-    var c: f32 = dot(oc, oc) - sphere.radius * sphere.radius;
-    var discriminant: f32 = b * b - 4.0 * a * c;
+    var h: f32 = dot(ray.dir, oc);
+    var c: f32 = length(oc) * length(oc) - sphere.radius * sphere.radius;
+    var discriminant: f32 = h * h - a * c;
 
     var hit_info: HitInfo;
 
-    if(discriminant >= 0.0){
-        var dist: f32 = (-b - sqrt(discriminant)) / (2.0 * a);
+    if(discriminant < 0.0){
+        hit_info.hit = false;
+        return hit_info;
+    }
 
-        if(dist >= ray.min && dist <= ray.max){
-            hit_info.hit = true;
-            hit_info.t = dist;
-            hit_info.p = ray.pos + dist * ray.dir;
-            hit_info.normal = (hit_info.p - sphere.pos) / sphere.radius;
-            hit_info.material = material_data.materials[sphere.material_index];
+    var sqrtd = sqrt(discriminant);
+
+    var root = (h - sqrtd) / a;
+    if(root <= ray.min || root >= ray.max){
+        root = (h + sqrtd) / a;
+        if(root <= ray.min || root >= ray.max){
+            hit_info.hit = false;
+            return hit_info;
         }
     }
 
+    hit_info.hit = true;
+    hit_info.t = root;
+    hit_info.p = ray.pos + hit_info.t * ray.dir;
+
+    var outward_normal: vec3<f32> = (hit_info.p - sphere.pos) / sphere.radius;
+    var front_face: bool = dot(ray.dir, outward_normal) < 0.0;
+    if(front_face){
+        hit_info.normal = outward_normal;
+    } else {
+        hit_info.normal = -outward_normal;
+    }
+    
+    hit_info.material = material_data.materials[sphere.material_index];
+
     return hit_info;
+
 }
 
 fn hit_triangle(triangle: Triangle, ray: Ray) -> HitInfo {
@@ -251,8 +148,7 @@ fn hit_triangle(triangle: Triangle, ray: Ray) -> HitInfo {
     return hit_info;
 }
 
-fn environment_light(ray: Ray) -> vec3<f32>
-{
+fn environment_light(ray: Ray) -> vec3<f32> {
 
     let use_environment_light: u32 = 0u;
 
@@ -348,28 +244,18 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
     pixel_color /= f32(rays_per_pixel);
 
-
-    //Store Pixel Color
+    //Retrieve Stored Pixel Value
     var pixel: vec3<f32> = image_buffer[pixel_index];
 
+    //Clear Pixel on Frame Reset
     if(time.frame_number == 0u){
         pixel = vec3<f32>(0.0, 0.0, 0.0);
     } 
 
+    //Accumulate New Pixel Value
     pixel += pixel_color;
     image_buffer[pixel_index] = pixel;
 
 
-    //Combine with previous frames
-    // if(time.frame_number != 1u){
-    //     let frame_f32: f32 = f32(time.frame_number);
-    //     let weight: f32 = 1.0 / (frame_f32 + 1.0);
-    //     let old_pixel_color: vec4<f32> = textureLoad(color_buffer_read, screen_pos);
-    //     pixel_color = saturate(pixel_color * weight + old_pixel_color.xyz * (1.0 - weight));
-    // }
 
-    // //Store Pixel Color
-    // // if(time.frame_number < 1000u){
-    //     textureStore(color_buffer, screen_pos, vec4<f32>(pixel_color, 1.0));
-    // // }
 }
