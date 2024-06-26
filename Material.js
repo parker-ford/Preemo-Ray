@@ -14,5 +14,6 @@ export class Material {
         this.metalic_fuzz = options.metalic_fuzz ? options.metalic_fuzz : 0;
         this.attenuation = options.attenuation ? options.attenuation : vec3.fromValues(1, 0, 1);
         this.material_flag = options.material_flag ? options.material_flag : Material.TYPES.LAMBERTIAN;
+        this.refractive_index = options.refractive_index ? options.refractive_index : 1.0;
     }
 }

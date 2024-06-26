@@ -90,10 +90,12 @@ export class Scene {
                     attenuation: new Float32Array(MaterialValues, 0, 3),
                     metalic_fuzz: new Float32Array(MaterialValues, 12, 1),
                     material_flag: new Uint32Array(MaterialValues, 16, 1),
+                    refractive_index: new Float32Array(MaterialValues, 20, 1),
                 }
                 MaterialViews.attenuation.set(material.attenuation);
                 MaterialViews.metalic_fuzz[0] = material.metalic_fuzz;
                 MaterialViews.material_flag[0] = material.material_flag;
+                MaterialViews.refractive_index[0] = material.refractive_index;
 
                 const materialView = new Uint8Array(MaterialValues);
                 const allMaterialsView = new Uint8Array(this.materials_data, material_offset * this.material_size, this.material_size);

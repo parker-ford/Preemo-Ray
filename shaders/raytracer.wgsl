@@ -3,6 +3,7 @@ const PI: f32 = 3.14159265359;
 
 const MATERIAL_LAMBERTIAN: u32 = 0u;
 const MATERIAL_METAL: u32 = 1u;
+const MATERIAL_DIELECTRIC: u32 = 2u;
 
 struct Ray {
     pos: vec3<f32>, //origin
@@ -39,6 +40,7 @@ struct Material {
     attenuation: vec3<f32>,
     metalic_fuzz: f32,
     material_flag: u32,
+    refractive_index: f32,
 }
 
 struct MaterialData {
@@ -52,6 +54,7 @@ struct HitInfo {
     normal: vec3<f32>,
     color: vec3<f32>,
     material: Material,
+    front_face: bool,
 };
 
 struct ScatterInfo {
@@ -116,8 +119,8 @@ fn hit_sphere(sphere: Sphere, ray: Ray) -> HitInfo {
     hit_info.p = ray.pos + hit_info.t * ray.dir;
 
     var outward_normal: vec3<f32> = (hit_info.p - sphere.pos) / sphere.radius;
-    var front_face: bool = dot(ray.dir, outward_normal) < 0.0;
-    if(front_face){
+    hit_info.front_face = dot(ray.dir, outward_normal) < 0.0;
+    if(hit_info.front_face){
         hit_info.normal = outward_normal;
     } else {
         hit_info.normal = -outward_normal;
@@ -197,6 +200,13 @@ fn intersect_ray(ray: Ray) -> HitInfo{
     return closest_hit;
 }
 
+fn reflectance(cosine: f32, refractive_index: f32) -> f32 {
+    // Use Schlick's approximation for reflectance.
+    var r0: f32 = (1.0 - refractive_index) / (1.0 + refractive_index);
+    r0 = r0 * r0;
+    return r0 + (1.0 - r0) * pow((1.0 - cosine), 5.0);
+}
+
 fn scatter(ray: Ray, hit_info: HitInfo, state_ptr: ptr<function, u32>) -> ScatterInfo{
 
     var scatter_info: ScatterInfo;
@@ -211,6 +221,31 @@ fn scatter(ray: Ray, hit_info: HitInfo, state_ptr: ptr<function, u32>) -> Scatte
         case MATERIAL_METAL: {
             var reflected_direction: vec3<f32> = reflect(ray.dir, hit_info.normal);
             scatter_direction = normalize(reflected_direction + (hit_info.material.metalic_fuzz * random_direction(state_ptr)));
+            break;
+        }
+        case MATERIAL_DIELECTRIC: {
+
+
+            var ri: f32 = 0;
+            if(hit_info.front_face){
+                ri = 1.0 / hit_info.material.refractive_index;
+            } else {
+                ri = hit_info.material.refractive_index;
+            }
+            let cos_theta: f32 = min(dot(-ray.dir, hit_info.normal), 1.0);
+            let sin_theta: f32 = sqrt(1.0 - cos_theta * cos_theta);
+
+            if(ri * sin_theta > 1.0 || reflectance(cos_theta, ri) > next_random(state_ptr)){
+                //Must Reflect
+                scatter_direction = reflect(ray.dir, hit_info.normal);
+            }
+            else{
+                //Can Refract
+                scatter_direction = refract(ray.dir, hit_info.normal, ri);
+            }
+
+            //Maybe Unneccesary?
+            scatter_direction = normalize(scatter_direction);
             break;
         }
         default: {
