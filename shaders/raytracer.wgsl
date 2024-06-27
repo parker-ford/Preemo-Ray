@@ -159,30 +159,6 @@ fn hit_triangle(triangle: Triangle, ray: Ray) -> HitInfo {
     return hit_info;
 }
 
-fn environment_light(ray: Ray) -> vec3<f32> {
-
-    let use_environment_light: u32 = 0u;
-
-    if(use_environment_light == 0){
-        return vec3<f32>(0.0, 0.0, 0.0);
-    }
-
-    let sky_horizon_color: vec3<f32> = vec3<f32>(0.8, 0.8, 0.9);
-    let sky_zenith_color: vec3<f32> = vec3<f32>(0.3, 0.5, 0.8);
-    let ground_color: vec3<f32> = vec3<f32>(0.7, 0.7, 0.7);
-
-    let sun_focus: f32 = 1000.0;
-    let sun_intensity: f32 = 1.0;
-    let sun_position: vec3<f32> = vec3<f32>(1.0, 0.0, 0.0);
-
-    let sky_gradient_t: f32 = pow(smoothstep(0, 0.4, ray.dir.y), 0.35);
-    let ground_to_sky_t: f32 = smoothstep(-0.01, 0.0, ray.dir.y);
-    let sky_gradient: vec3<f32> = mix(sky_horizon_color, sky_zenith_color, sky_gradient_t);
-    let sun: f32 = pow(max(.0, dot(ray.dir, sun_position)), sun_focus) * sun_intensity;
-    // Combine ground, sky, and sun
-    let composite: vec3<f32> = mix(ground_color, sky_gradient, ground_to_sky_t) + sun * f32(ground_to_sky_t >= 1);
-    return composite;
-}
 
 fn intersect_ray(ray: Ray) -> HitInfo{
     var closest_hit: HitInfo;
@@ -267,7 +243,7 @@ fn scatter(ray: Ray, hit_info: HitInfo, state_ptr: ptr<function, u32>) -> Scatte
 fn trace_ray(ray: Ray, state_ptr: ptr<function, u32>) -> vec3<f32> {
 
     var current_ray: Ray = ray;
-    let max_bounces: u32 = 10u;
+    let max_bounces: u32 = 5u;
     var ray_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
     var incoming_light: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
 
@@ -289,6 +265,58 @@ fn trace_ray(ray: Ray, state_ptr: ptr<function, u32>) -> vec3<f32> {
     return ray_color;
 }
 
+fn generatePinholeRay(pixel: vec2<f32>, state_ptr: ptr<function, u32>) -> Ray {
+
+    //Random Offset
+    // let offset: vec2<f32> = random_point_in_circle(state_ptr);
+    let offset: vec2<f32> = random_vec2(state_ptr);
+    var offset_pixel: vec2<f32> = pixel + (offset * 2.0 - 1.0);
+
+    var tan_half_angle: f32 = tan(camera.fov_angle / 2.0);
+    var aspect_scale: f32;
+    if (camera.fov_direction == 0u) {
+        aspect_scale = camera.image_size.x;
+    } else {
+        aspect_scale = camera.image_size.y;
+    }
+    var direction: vec3<f32> = normalize(vec3<f32>(vec2<f32>(offset_pixel.x, -offset_pixel.y) * tan_half_angle / aspect_scale, -1.0));
+    
+    //Create new ray at camera origin
+    var ray: Ray;
+    ray.pos = vec3<f32>(0.0, 0.0, 0.0);
+    ray.dir = direction;
+    ray.min = camera.clip_near;
+    ray.max = camera.clip_far;
+    return ray;
+}
+
+fn generateThinLensRay(pixel: vec2<f32>, state_ptr: ptr<function, u32>) -> Ray{
+    var pinhole_ray: Ray = generatePinholeRay(pixel, state_ptr);
+
+    // let lens_offset: vec2<f32> = random_point_in_circle(state_ptr) * (camera.lens_focal_length / (2.0 * camera.fstop));
+    let lens_offset: vec2<f32> = random_vec2(state_ptr);
+
+    let theta: f32 = lens_offset.x * 2.0 * PI;
+    let radius: f32 = lens_offset.y; 
+
+    let u: f32 = cos(theta) * sqrt(radius);
+    let v: f32 = sin(theta) * sqrt(radius);  
+
+    let focus_plane: f32 = (camera.image_plane_distance * camera.lens_focal_length) / (camera.image_plane_distance - camera.lens_focal_length);
+    let focus_point: vec3<f32> = pinhole_ray.dir * (focus_plane / dot(pinhole_ray.dir, vec3<f32>(0.0, 0.0, -1.0)));
+
+    let circle_of_confusion_radius = camera.focal_length / (2.0 * camera.fstop);
+
+    let origin: vec3<f32> = vec3<f32>(1.0, 0.0, 0.0) * (u * circle_of_confusion_radius) + vec3<f32>(0.0, 1.0, 0.0) * (v * circle_of_confusion_radius);
+
+    var ray: Ray;
+    ray.pos = origin;
+    ray.dir = normalize(focus_point - origin);
+    ray.min = camera.clip_near;
+    ray.max = camera.clip_far;
+    return ray;
+}
+
 @compute @workgroup_size(1,1,1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
@@ -299,7 +327,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var<function> pixel_seed: u32 = pixel_index + time.frame_number * 902347u;
 
     //Generate Ray and Transform to World Space
-    var ray: Ray = generatePinholeRay(pixel_pos, random_point_in_circle(&pixel_seed));
+    var ray: Ray = generatePinholeRay(pixel_pos, &pixel_seed);
+    // var ray: Ray = generateThinLensRay(pixel_pos, &pixel_seed);
     ray.pos = (camera.camera_to_world_matrix * vec4<f32>(ray.pos, 1.0)).xyz;
     ray.dir = (camera.camera_to_world_matrix * vec4<f32>(ray.dir, 0.0)).xyz;
 

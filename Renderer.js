@@ -94,6 +94,7 @@ export class Renderer {
             usage: GPUBufferUsage.STORAGE
         });
 
+        //Image Sampler
         const samplerDescriptor = {
             addressModeU: 'repeat',
             addressModeV: 'repeat',
@@ -102,16 +103,16 @@ export class Renderer {
             minmapFilter: "nearest",
             maxAnisotropy: 1
         };
-
         this.sampler = this.device.createSampler(samplerDescriptor);
 
+        //Camera Buffer
         this.camera_buffer = this.device.createBuffer({
             label: 'camera_buffer',
-            size: 112,
+            size: 128,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
 
-
+        //Time Buffer
         this.time_values = new ArrayBuffer(8);
         this.time_views = {
             elapsed_time: new Float32Array(this.time_values, 0, 1),
@@ -124,6 +125,7 @@ export class Renderer {
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
 
+        //Scene Buffer
         this.scene_values = new ArrayBuffer(4);
         this.scene_views = {
             sphere_count: new Uint32Array(this.scene_values, 0, 1),
@@ -134,13 +136,15 @@ export class Renderer {
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         })
 
+        //Sphere Buffer
         this.sphere_buffer = this.device.createBuffer({
-            size: 32 * 100, //Size of sphere * number of spheres
+            size: 32 * 1000, //Size of sphere * number of spheres
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
         
+        //Material Buffer
         this.material_buffer = this.device.createBuffer({
-            size: 32 * 100, //Size of material * number of spheres
+            size: 32 * 1000, //Size of material * number of spheres
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         })
     }

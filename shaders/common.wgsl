@@ -11,6 +11,7 @@ struct Camera {
     image_plane_distance: f32, //distance from camera to image plane,
     clip_near: f32, //near clipping plane
     clip_far: f32, //far clipping plane
+    focal_length: f32, //focal length in m
 }
 
 struct Time {

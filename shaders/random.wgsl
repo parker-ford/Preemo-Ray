@@ -32,29 +32,12 @@ fn random_vec3(state_ptr: ptr<function, u32>) -> vec3<f32> {
     return vec3<f32>(x, y, z);
 }
 
-fn random_direction(state_ptr: ptr<function, u32>) -> vec3<f32> {
-    return normalize(random_vec3(state_ptr) * 2.0 - 1.0);
+fn random_vec2(state_ptr: ptr<function, u32>) -> vec2<f32> {
+    var x: f32 = next_random(state_ptr);
+    var y: f32 = next_random(state_ptr);
+    return vec2<f32>(x, y);
 }
 
-fn generatePinholeRay(pixel: vec2<f32>, offset: vec2<f32>) -> Ray {
-
-    //Random Offset
-    var offset_pixel: vec2<f32> = pixel + (offset * 2.0 - 1.0);
-
-    var tan_half_angle: f32 = tan(camera.fov_angle / 2.0);
-    var aspect_scale: f32;
-    if (camera.fov_direction == 0u) {
-        aspect_scale = camera.image_size.x;
-    } else {
-        aspect_scale = camera.image_size.y;
-    }
-    var direction: vec3<f32> = normalize(vec3<f32>(vec2<f32>(offset_pixel.x, -offset_pixel.y) * tan_half_angle / aspect_scale, -1.0));
-    
-    //Create new ray at camera origin
-    var ray: Ray;
-    ray.pos = vec3<f32>(0.0, 0.0, 0.0);
-    ray.dir = direction;
-    ray.min = camera.clip_near;
-    ray.max = camera.clip_far;
-    return ray;
+fn random_direction(state_ptr: ptr<function, u32>) -> vec3<f32> {
+    return normalize(random_vec3(state_ptr) * 2.0 - 1.0);
 }
