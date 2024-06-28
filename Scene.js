@@ -1,6 +1,7 @@
 
 import { Sphere } from './Sphere.js';
 import { Material } from './Material.js';
+import { Mesh } from './Meshes/Mesh.js';
 
 export class Scene {
 
@@ -25,6 +26,11 @@ export class Scene {
         this.materials_count = 0;
         this.materials_data = new ArrayBuffer(0);
         this.material_size = 32;
+
+        //Meshes
+        this.meshes = [];
+        this.meshes_count = 0;
+        this.meshes_data = new ArrayBuffer(0);
         
         //Debug
         this.print = false;
@@ -41,6 +47,11 @@ export class Scene {
             this.materials.push(object);
             this.materials_data = new ArrayBuffer(this.materials_data.byteLength + this.material_size);
             this.materials_count++;
+        }
+        if(object instanceof Mesh){
+            this.meshes.push(object);
+            this.meshes_data = new ArrayBuffer(this.meshes_data.byteLength + object.getSize());
+            this.meshes_count++;
         }
     }
 
@@ -102,6 +113,41 @@ export class Scene {
                 allMaterialsView.set(materialView);
                 material_offset++;
             });
+
+            //Update Meshes
+            var mesh_offset = 0;
+            this.meshes.forEach(mesh => {
+                mesh.triangles.forEach(triangle => {
+                    const TriangleValues = new ArrayBuffer(128);
+                    const TriangleViews = {
+                        pos_a: new Float32Array(TriangleValues, 0, 3),
+                        pos_b: new Float32Array(TriangleValues, 16, 3),
+                        pos_c: new Float32Array(TriangleValues, 32, 3),
+                        normal_a: new Float32Array(TriangleValues, 48, 3),
+                        normal_b: new Float32Array(TriangleValues, 64, 3),
+                        normal_c: new Float32Array(TriangleValues, 80, 3),
+                        material_index: new Uint32Array(TriangleValues, 92, 1),
+                        uv_a: new Float32Array(TriangleValues, 96, 2),
+                        uv_b: new Float32Array(TriangleValues, 104, 2),
+                        uv_c: new Float32Array(TriangleValues, 112, 2),
+                    };
+                    TriangleViews.pos_a.set(triangle.pos_a);
+                    TriangleViews.pos_b.set(triangle.pos_b);
+                    TriangleViews.pos_c.set(triangle.pos_c);
+                    TriangleViews.normal_a.set(triangle.normal_a);
+                    TriangleViews.normal_b.set(triangle.normal_b);
+                    TriangleViews.normal_c.set(triangle.normal_c);
+                    TriangleViews.material_index[0] = mesh.material_id;
+                    TriangleViews.uv_a.set(triangle.uv_a);
+                    TriangleViews.uv_b.set(triangle.uv_b);
+                    TriangleViews.uv_c.set(triangle.uv_c);
+
+                    const triangleView = new Uint8Array(TriangleValues);
+                    const allTrianglesView = new Uint8Array(this.meshes_data, mesh_offset * Mesh.triangle_size, Mesh.triangle_size);
+                    allTrianglesView.set(triangleView);
+                    mesh_offset++;
+                })
+            })
         });
     }
 }

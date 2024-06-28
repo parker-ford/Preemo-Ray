@@ -146,6 +146,12 @@ export class Renderer {
         this.material_buffer = this.device.createBuffer({
             size: 32 * 1000, //Size of material * number of spheres
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+
+        //Triangle Buffer
+        this.triangle_buffer = this.device.createBuffer({
+            size: 128 * 1000, //Will def need to increase this at some point
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         })
     }
 
@@ -376,6 +382,9 @@ export class Renderer {
         var clearBuffer = new ArrayBuffer(this.sphere_buffer.size);
         this.device.queue.writeBuffer(this.sphere_buffer, 0, clearBuffer);
         this.device.queue.writeBuffer(this.sphere_buffer, 0, scene.spheres_data, 0, scene.spheres_data.byteLength);
+
+        //Triangle Data
+        this.device.queue.writeBuffer(this.triangle_buffer, 0, scene.meshes_data, 0, scene.meshes_data.byteLength);
 
         //Material Data
         clearBuffer = new ArrayBuffer(this.material_buffer.size);

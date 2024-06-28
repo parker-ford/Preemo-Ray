@@ -13,19 +13,22 @@ struct Ray {
 };
 
 struct Sphere {
-    pos: vec3<f32>,
-    radius: f32,
-    material_index: u32,
+    pos: vec3<f32>, //Position in world space
+    radius: f32, //Radius in meters
+    material_index: u32, //Index into material array
 };
 
 struct Triangle {
-    a: vec3<f32>,
-    b: vec3<f32>,
-    c: vec3<f32>,
+    pos_a: vec3<f32>,
+    pos_b: vec3<f32>,
+    pos_c: vec3<f32>,
     normal_a: vec3<f32>,
     normal_b: vec3<f32>,
     normal_c: vec3<f32>,
     material_index: u32,
+    uv_a: vec2<f32>,
+    uv_b: vec2<f32>,
+    uv_c: vec2<f32>,
 };
 
 struct Scene {
@@ -133,10 +136,10 @@ fn hit_sphere(sphere: Sphere, ray: Ray) -> HitInfo {
 }
 
 fn hit_triangle(triangle: Triangle, ray: Ray) -> HitInfo {
-    let edge_ab: vec3<f32> = triangle.b - triangle.a;
-    let edge_ac: vec3<f32> = triangle.c - triangle.a;
+    let edge_ab: vec3<f32> = triangle.pos_b - triangle.pos_a;
+    let edge_ac: vec3<f32> = triangle.pos_c - triangle.pos_a;
     let normal: vec3<f32> = cross(edge_ab, edge_ac);
-    let ao: vec3<f32> = ray.pos - triangle.a;
+    let ao: vec3<f32> = ray.pos - triangle.pos_a;
     let dao: vec3<f32> = cross(ray.dir, ao);
 
     let det: f32 = -dot(dao, normal);
