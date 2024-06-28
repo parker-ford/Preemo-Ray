@@ -33,6 +33,7 @@ struct Triangle {
 
 struct Scene {
     sphere_count: u32,
+    triangle_count: u32,
 };
 
 struct SphereData {
@@ -48,6 +49,10 @@ struct Material {
 
 struct MaterialData {
     materials: array<Material>
+}
+
+struct TriangleData {
+    triangles: array<Triangle>
 }
 
 struct HitInfo {
@@ -91,6 +96,7 @@ const s16: array<vec2<f32>, 16> = array<vec2<f32>, 16>(vec2<f32>(0.5625, 0.4375)
 @group(0) @binding(3) var<uniform> scene: Scene;
 @group(0) @binding(4) var<storage, read> sphere_data: SphereData;
 @group(0) @binding(5) var<storage, read> material_data: MaterialData;
+@group(0) @binding(6) var<storage, read> triangle_data: TriangleData;
 
 fn hit_sphere(sphere: Sphere, ray: Ray) -> HitInfo {
     var oc: vec3<f32> = sphere.pos - ray.pos;
@@ -171,6 +177,14 @@ fn intersect_ray(ray: Ray) -> HitInfo{
     for(var i: u32 = 0u; i < scene.sphere_count; i = i + 1u){
         var sphere: Sphere = sphere_data.spheres[i];
         var hit_info: HitInfo = hit_sphere(sphere, ray);
+        if(hit_info.hit && hit_info.t < closest_hit.t){
+            closest_hit = hit_info;
+        }
+    }
+
+    for(var i: u32 = 0u; i < scene.triangle_count; i = i + 1u){
+        var triangle: Triangle = triangle_data.triangles[i];
+        var hit_info: HitInfo = hit_triangle(triangle, ray);
         if(hit_info.hit && hit_info.t < closest_hit.t){
             closest_hit = hit_info;
         }

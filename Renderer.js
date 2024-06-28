@@ -126,13 +126,14 @@ export class Renderer {
         });
 
         //Scene Buffer
-        this.scene_values = new ArrayBuffer(4);
+        this.scene_values = new ArrayBuffer(8);
         this.scene_views = {
             sphere_count: new Uint32Array(this.scene_values, 0, 1),
+            triangle_count: new Uint32Array(this.scene_values, 4, 1),
         }
         this.scene_buffer = this.device.createBuffer({
             label: 'scene_buffer',
-            size: 4,
+            size: 8,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         })
 
@@ -221,6 +222,14 @@ export class Renderer {
                         type: 'read-only-storage',
                         hasDynamicOffset: false
                     }
+                },
+                {
+                    binding: 6,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {
+                        type: 'read-only-storage',
+                        hasDynamicOffset: false
+                    }
                 }
             ]
         });
@@ -263,6 +272,12 @@ export class Renderer {
                     binding: 5,
                     resource: {
                         buffer: this.material_buffer
+                    }
+                },
+                {
+                    binding: 6,
+                    resource: {
+                        buffer: this.triangle_buffer
                     }
                 }
             ]
@@ -393,6 +408,7 @@ export class Renderer {
 
         //Scene Data
         this.scene_views.sphere_count[0] = scene.spheres_count;
+        this.scene_views.triangle_count[0] = scene.triangle_count;
         this.device.queue.writeBuffer(this.scene_buffer, 0, this.scene_values);
 
         //Time Data

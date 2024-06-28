@@ -15,12 +15,6 @@ export class Scene {
         this.spheres_data = new ArrayBuffer(0);
         this.sphere_size = 32;
 
-        //Triangles
-        this.triangles = [];
-        this.triangles_count = 0;
-        this.triangles_data = new ArrayBuffer(0);
-        this.triangle_size = 32;
-
         //Materials
         this.materials = [];
         this.materials_count = 0;
@@ -30,6 +24,7 @@ export class Scene {
         //Meshes
         this.meshes = [];
         this.meshes_count = 0;
+        this.triangle_count = 0;
         this.meshes_data = new ArrayBuffer(0);
         
         //Debug
@@ -52,6 +47,7 @@ export class Scene {
             this.meshes.push(object);
             this.meshes_data = new ArrayBuffer(this.meshes_data.byteLength + object.getSize());
             this.meshes_count++;
+            this.triangle_count += object.triangle_count;
         }
     }
 
