@@ -142,28 +142,82 @@ fn hit_sphere(sphere: Sphere, ray: Ray) -> HitInfo {
 }
 
 fn hit_triangle(triangle: Triangle, ray: Ray) -> HitInfo {
-    let edge_ab: vec3<f32> = triangle.pos_b - triangle.pos_a;
-    let edge_ac: vec3<f32> = triangle.pos_c - triangle.pos_a;
-    let normal: vec3<f32> = cross(edge_ab, edge_ac);
-    let ao: vec3<f32> = ray.pos - triangle.pos_a;
-    let dao: vec3<f32> = cross(ray.dir, ao);
 
-    let det: f32 = -dot(dao, normal);
-    let inv_det: f32 = 1.0 / det;
+    // let edge_ab: vec3<f32> = triangle.pos_b - triangle.pos_a;
+    // let edge_ac: vec3<f32> = triangle.pos_c - triangle.pos_a;
+    // let normal: vec3<f32> = cross(edge_ab, edge_ac);
+    // let ao: vec3<f32> = ray.pos - triangle.pos_a;
+    // let dao: vec3<f32> = cross(ray.dir, ao);
 
-    let dist: f32 = dot(ao, normal) * inv_det;
-    let u: f32 = dot(edge_ac, dao) * inv_det;
-    let v: f32 = -dot(edge_ab, dao) * inv_det;
-    let w: f32 = 1.0 - u - v;
+    // let det: f32 = -dot(dao, normal);
+    // let inv_det: f32 = 1.0 / det;
+
+    // let dist: f32 = dot(ao, normal) * inv_det;
+    // let u: f32 = dot(edge_ac, dao) * inv_det;
+    // let v: f32 = -dot(edge_ab, dao) * inv_det;
+    // let w: f32 = 1.0 - u - v;
+
+    // var hit_info: HitInfo;
+    // if(det > 0.0001 && dist >= ray.min && u >= 0.0 && v >= 0.0 && w >= 0.0){
+    //     hit_info.hit = true;
+    // }
+    // hit_info.t = dist;
+    // hit_info.p = ray.pos + dist * ray.dir;
+    // hit_info.normal = normalize(triangle.normal_a * w + triangle.normal_b * u + triangle.normal_c * v);
+    // hit_info.material = material_data.materials[triangle.material_index];
 
     var hit_info: HitInfo;
-    if(det > 0.0001 && dist >= ray.min && u >= 0.0 && v >= 0.0 && w >= 0.0){
-        hit_info.hit = true;
+    let edge_ab: vec3<f32> = triangle.pos_b - triangle.pos_a;
+    let edge_ac: vec3<f32> = triangle.pos_c - triangle.pos_a;
+    let cross_ac: vec3<f32> = cross(ray.dir, edge_ac);
+    let det: f32 = dot(edge_ab, cross_ac);
+
+    //Check if parallel
+    if(det > -0.0001 && det < 0.0001){
+        hit_info.hit = false;
+        return hit_info;
     }
-    hit_info.t = dist;
-    hit_info.p = ray.pos + dist * ray.dir;
+    
+    let inv_det: f32 = 1.0 / det;
+    let s: vec3<f32> = ray.pos - triangle.pos_a;
+    let u: f32 = dot(s, cross_ac) * inv_det;
+
+    if(u < 0.0 || u > 1.0){
+        hit_info.hit = false;
+        return hit_info;
+    }
+
+    let cross_ab: vec3<f32> = cross(s, edge_ab);
+    let v: f32 = dot(ray.dir, cross_ab) * inv_det;
+
+    if(v < 0.0 || u + v > 1.0){
+        hit_info.hit = false;
+        return hit_info;
+    }
+
+    let t: f32 = dot(edge_ac, cross_ab) * inv_det;
+
+    if(t > ray.min && t < ray.max){
+        hit_info.hit = true;
+    } else {
+        hit_info.hit = false;
+        return hit_info;
+    }
+
+    let w: f32 = 1.0 - u - v;
+
+    hit_info.t = t;
+    hit_info.p = ray.pos + t * ray.dir;
     hit_info.normal = normalize(triangle.normal_a * w + triangle.normal_b * u + triangle.normal_c * v);
     hit_info.material = material_data.materials[triangle.material_index];
+
+    //Only Show Front Face. This seems backwards... may need to flip normals
+    if(dot(ray.dir, hit_info.normal) > 0.0){
+        hit_info.front_face = true;
+    } else {
+        hit_info.front_face = false;
+        hit_info.hit = false;
+    }
 
     return hit_info;
 }
@@ -189,6 +243,13 @@ fn intersect_ray(ray: Ray) -> HitInfo{
             closest_hit = hit_info;
         }
     }
+
+    //DEBUG
+    // var triangle: Triangle = triangle_data.triangles[0];
+    // var hit_info: HitInfo = hit_triangle(triangle, ray);
+    // if(hit_info.hit && hit_info.t < closest_hit.t){
+    //     closest_hit = hit_info;
+    // }
 
     return closest_hit;
 }
@@ -367,6 +428,13 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     //Accumulate New Pixel Value
     pixel += pixel_color;
+
+    //DEBUG
+    // pixel += vec3<f32>(f32(scene.triangle_count), 0.5, 0.0);
+    // var test_triangle = triangle_data.triangles[0];
+    // pixel += test_triangle.pos_b + 1.0;
+    // pixel += vec3<f32>(0.5, 1.0, 1.0);
+
     image_buffer[pixel_index] = pixel;
 
 

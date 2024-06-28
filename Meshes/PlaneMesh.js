@@ -73,6 +73,6 @@ export class PlaneMesh extends Mesh {
                 this.triangle_count += 2;
             }
         }
-
+        console.log(this.triangles)
     }
 }
