@@ -211,8 +211,8 @@ fn hit_triangle(triangle: Triangle, ray: Ray) -> HitInfo {
     hit_info.normal = normalize(triangle.normal_a * w + triangle.normal_b * u + triangle.normal_c * v);
     hit_info.material = material_data.materials[triangle.material_index];
 
-    //Only Show Front Face. This seems backwards... may need to flip normals
-    if(dot(ray.dir, hit_info.normal) > 0.0){
+    //Only Show Front Face. TODO: Make this an option
+    if(dot(ray.dir, hit_info.normal) < 0.0){
         hit_info.front_face = true;
     } else {
         hit_info.front_face = false;
