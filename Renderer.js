@@ -388,28 +388,26 @@ export class Renderer {
          }
 
         scene.update();
+        //Should happen only once. Assumes that scenes will rarely be chaning in real-time. May come back to this later.
+        if(scene.has_setup_buffers === false){
+            scene.setupBuffers();
+            //Sphere Data
+            this.device.queue.writeBuffer(this.sphere_buffer, 0, scene.spheres_data, 0, scene.spheres_data.byteLength);
+
+            //Triangle Data
+            this.device.queue.writeBuffer(this.triangle_buffer, 0, scene.meshes_data, 0, scene.meshes_data.byteLength);
+
+            //Material Data
+            this.device.queue.writeBuffer(this.material_buffer, 0, scene.materials_data, 0, scene.materials_data.byteLength);
+
+            //Scene Data
+            this.scene_views.sphere_count[0] = scene.spheres_count;
+            this.scene_views.triangle_count[0] = scene.triangle_count;
+            this.device.queue.writeBuffer(this.scene_buffer, 0, this.scene_values);
+        }
 
         //Camera Data
         this.device.queue.writeBuffer(this.camera_buffer, 0, camera.cameraBufferValues);
-
-        //Sphere Data
-        //TODO Do not need to write this every frame
-        var clearBuffer = new ArrayBuffer(this.sphere_buffer.size);
-        this.device.queue.writeBuffer(this.sphere_buffer, 0, clearBuffer);
-        this.device.queue.writeBuffer(this.sphere_buffer, 0, scene.spheres_data, 0, scene.spheres_data.byteLength);
-
-        //Triangle Data
-        this.device.queue.writeBuffer(this.triangle_buffer, 0, scene.meshes_data, 0, scene.meshes_data.byteLength);
-
-        //Material Data
-        clearBuffer = new ArrayBuffer(this.material_buffer.size);
-        this.device.queue.writeBuffer(this.material_buffer, 0, clearBuffer);
-        this.device.queue.writeBuffer(this.material_buffer, 0, scene.materials_data, 0, scene.materials_data.byteLength);
-
-        //Scene Data
-        this.scene_views.sphere_count[0] = scene.spheres_count;
-        this.scene_views.triangle_count[0] = scene.triangle_count;
-        this.device.queue.writeBuffer(this.scene_buffer, 0, this.scene_values);
 
         //Time Data
         this.time_views.elapsed_time[0] = Time.elapsedTime;

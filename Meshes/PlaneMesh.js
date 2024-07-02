@@ -25,7 +25,7 @@ export class PlaneMesh extends Mesh {
             for(let j = 0; j < this.height + 1; j++){
                 this.vertexCoordinates.push([ -0.5 + i * widthInterval, -0.5 + j * heightInterval, 0]);
                 this.uvCoordinates.push([i * widthInterval, j * heightInterval]);
-                this.normalCoordinates.push([0, 0, 1]);
+                this.normalCoordinates.push([0, 0, -1]);
             }
         }
     }
