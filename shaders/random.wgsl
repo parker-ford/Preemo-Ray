@@ -26,9 +26,9 @@ fn random_point_in_circle(state_ptr: ptr<function, u32>) -> vec2<f32> {
 }
 
 fn random_vec3(state_ptr: ptr<function, u32>) -> vec3<f32> {
-    var x: f32 = random_normal_distribution(state_ptr);
-    var y: f32 = random_normal_distribution(state_ptr);
-    var z: f32 = random_normal_distribution(state_ptr);
+    var x: f32 = next_random(state_ptr);
+    var y: f32 = next_random(state_ptr);
+    var z: f32 = next_random(state_ptr);
     return vec3<f32>(x, y, z);
 }
 
