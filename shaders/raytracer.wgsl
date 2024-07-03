@@ -304,8 +304,10 @@ fn trace_ray(ray: Ray, state_ptr: ptr<function, u32>) -> vec3<f32> {
             ray_color *= scatter_info.attenuation;
 
         } else {
-            var a = 0.5 * (current_ray.dir.y + 1.0);
-            ray_color *= (1.0-a)*vec3<f32>(1.0, 1.0, 1.0) + a*vec3<f32>(0.5, 0.7, 1.0);
+            //var a = 0.5 * (current_ray.dir.y + 1.0);
+            //ray_color *= (1.0-a)*vec3<f32>(1.0, 1.0, 1.0) + a*vec3<f32>(0.5, 0.7, 1.0);
+            // ray_color *= vec3<f32>(0.0, 0.0, 0.0);
+            ray_color *= camera.background_color;
             break;
         }
     }
@@ -378,6 +380,20 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pixel_index: u32 = screen_pos.y * u32(camera.image_size.x) + screen_pos.x;
     var<function> pixel_seed: u32 = pixel_index + time.frame_number * 902347u;
 
+    //Retrieve Stored Pixel Value
+    var pixel: vec3<f32> = image_buffer[pixel_index];
+
+    //Clear Pixel on Frame Reset
+    if(time.frame_number == 0u){
+        pixel = vec3<f32>(0.0, 0.0, 0.0);
+    }
+
+    // if(next_random(&pixel_seed) < 0.0){
+    //     pixel += pixel / f32(time.frame_number + 1);
+    //     image_buffer[pixel_index] = pixel;
+    //     return;
+    // } 
+
     //Generate Ray and Transform to World Space
     var ray: Ray = generatePinholeRay(pixel_pos, &pixel_seed);
     // var ray: Ray = generateThinLensRay(pixel_pos, &pixel_seed);
@@ -392,25 +408,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
     pixel_color /= f32(rays_per_pixel);
 
-    //Retrieve Stored Pixel Value
-    var pixel: vec3<f32> = image_buffer[pixel_index];
-
-    //Clear Pixel on Frame Reset
-    if(time.frame_number == 0u){
-        pixel = vec3<f32>(0.0, 0.0, 0.0);
-    } 
-
     //Accumulate New Pixel Value
     pixel += pixel_color;
-
-    //DEBUG
-    // pixel += vec3<f32>(f32(scene.triangle_count), 0.5, 0.0);
-    // var test_triangle = triangle_data.triangles[0];
-    // pixel += test_triangle.pos_b + 1.0;
-    // pixel += vec3<f32>(0.5, 1.0, 1.0);
-
     image_buffer[pixel_index] = pixel;
-
-
 
 }

@@ -5,7 +5,6 @@ import { Time } from "./Time";
 
 export class PerspectiveCamera {
     constructor(options) {
-
         this.transform = new Transform( {} );
         this.fov = options.fov * Math.PI / 180;
         this.aspect = options.aspect;
@@ -20,6 +19,7 @@ export class PerspectiveCamera {
         this.fstop = options.fstop;
         this.image_plane_distance = options.image_plane_distance;
         this.focal_length = options.focal_length;
+        this.background_color = options.background_color || vec3.fromValues(0,0,0);
 
         this.useControlls = true;
         this.speed = 5;
@@ -52,7 +52,8 @@ export class PerspectiveCamera {
             image_plane_distance: new Float32Array(this.cameraBufferValues, 100, 1),
             clip_near: new Float32Array(this.cameraBufferValues, 104, 1),
             clip_far: new Float32Array(this.cameraBufferValues, 108, 1),
-            focal_length: new Float32Array(this.cameraBufferValues, 112, 1),
+            background_color: new Float32Array(this.cameraBufferValues, 112, 3),
+            focal_length: new Float32Array(this.cameraBufferValues, 124, 1),
         };
     }
 
@@ -74,6 +75,7 @@ export class PerspectiveCamera {
         this.cameraBufferViews.clip_near[0] = this.near;
         this.cameraBufferViews.clip_far[0] = this.far;
         this.cameraBufferViews.focal_length[0] = this.focal_length;
+        this.cameraBufferViews.background_color.set(this.background_color);
     }
 
     update(){
