@@ -4,6 +4,7 @@ const PI: f32 = 3.14159265359;
 const MATERIAL_LAMBERTIAN: u32 = 0u;
 const MATERIAL_METAL: u32 = 1u;
 const MATERIAL_DIELECTRIC: u32 = 2u;
+const MATERIAL_EMISSIVE: u32 = 3u;
 
 struct Ray {
     pos: vec3<f32>, //origin
@@ -43,6 +44,8 @@ struct SphereData {
 struct Material {
     attenuation: vec3<f32>,
     metalic_fuzz: f32,
+    emissive_color: vec3<f32>,
+    emissive_strength: f32,
     material_flag: u32,
     refractive_index: f32,
 }
@@ -299,14 +302,27 @@ fn trace_ray(ray: Ray, state_ptr: ptr<function, u32>) -> vec3<f32> {
         var hit_info: HitInfo = intersect_ray(current_ray);
 
         if(hit_info.hit){ 
+
+            //Stop if bounce limit reached
+            if(i == max_bounces){
+                ray_color *= 0;
+                break;
+            }
+
+            let color_from_emission: vec3<f32> = hit_info.material.emissive_color * hit_info.material.emissive_strength;
+
+            //Stop if emissive material
+            if(hit_info.material.material_flag == MATERIAL_EMISSIVE){
+                ray_color *= color_from_emission;
+                break; //Not sure about breaking here
+            }
+
             var scatter_info: ScatterInfo = scatter(current_ray, hit_info, state_ptr);
             current_ray = scatter_info.ray;
+            let color_from_scatter: vec3<f32> = scatter_info.attenuation;
             ray_color *= scatter_info.attenuation;
 
         } else {
-            //var a = 0.5 * (current_ray.dir.y + 1.0);
-            //ray_color *= (1.0-a)*vec3<f32>(1.0, 1.0, 1.0) + a*vec3<f32>(0.5, 0.7, 1.0);
-            // ray_color *= vec3<f32>(0.0, 0.0, 0.0);
             ray_color *= camera.background_color;
             break;
         }

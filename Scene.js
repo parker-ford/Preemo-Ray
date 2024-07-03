@@ -21,7 +21,7 @@ export class Scene {
         this.materials = [];
         this.materials_count = 0;
         this.materials_data = new ArrayBuffer(0);
-        this.material_size = 32;
+        // this.material_size = 32;
 
         //Meshes
         this.meshes = [];
@@ -42,7 +42,7 @@ export class Scene {
         }
         if(object instanceof Material){
             this.materials.push(object);
-            this.materials_data = new ArrayBuffer(this.materials_data.byteLength + this.material_size);
+            this.materials_data = new ArrayBuffer(this.materials_data.byteLength + Material.size);
             this.materials_count++;
         }
         if(object instanceof Mesh){
@@ -94,20 +94,24 @@ export class Scene {
     setupMaterialBuffer(){
         var material_offset = 0;
         this.materials.forEach(material => {
-            const MaterialValues = new ArrayBuffer(this.material_size);
+            const MaterialValues = new ArrayBuffer(Material.size);
             const MaterialViews = {
                 attenuation: new Float32Array(MaterialValues, 0, 3),
                 metalic_fuzz: new Float32Array(MaterialValues, 12, 1),
-                material_flag: new Uint32Array(MaterialValues, 16, 1),
-                refractive_index: new Float32Array(MaterialValues, 20, 1),
+                emissive_color: new Float32Array(MaterialValues, 16, 3),
+                emissive_strength: new Float32Array(MaterialValues, 28, 1),
+                material_flag: new Uint32Array(MaterialValues, 32, 1),
+                refractive_index: new Float32Array(MaterialValues, 36, 1),
             }
             MaterialViews.attenuation.set(material.attenuation);
             MaterialViews.metalic_fuzz[0] = material.metalic_fuzz;
             MaterialViews.material_flag[0] = material.material_flag;
             MaterialViews.refractive_index[0] = material.refractive_index;
+            MaterialViews.emissive_color.set(material.emissive_color);
+            MaterialViews.emissive_strength[0] = material.emissive_strength;
 
             const materialView = new Uint8Array(MaterialValues);
-            const allMaterialsView = new Uint8Array(this.materials_data, material_offset * this.material_size, this.material_size);
+            const allMaterialsView = new Uint8Array(this.materials_data, material_offset * Material.size, Material.size);
             allMaterialsView.set(materialView);
             material_offset++;
         });
