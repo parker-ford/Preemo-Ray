@@ -6,3 +6,4 @@ export * from './Material.js'
 
 export * from './Meshes/Mesh.js'
 export * from './Meshes/PlaneMesh.js'
+export * from './Meshes/CubeMesh.js'
