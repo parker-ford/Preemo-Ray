@@ -3,6 +3,7 @@ export * from './PerspectiveCamera.js'
 export * from './Scene.js'
 export * from './Sphere.js'
 export * from './Material.js'
+export * from './Time.js'
 
 export * from './Meshes/Mesh.js'
 export * from './Meshes/PlaneMesh.js'
