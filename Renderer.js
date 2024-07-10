@@ -2,6 +2,9 @@ import raytracer_shader from './shaders/raytracer.wgsl?raw';
 import random_shader from './shaders/random.wgsl?raw';
 import compositer_shader from './shaders/compositer.wgsl?raw';
 import common_shader from './shaders/common.wgsl?raw';
+import material_shader from './shaders/material.wgsl?raw';
+import hitinfo_shader from './shaders/hitinfo.wgsl?raw';
+
 import { Time } from './Time.js';
 
 export class Renderer {
@@ -126,14 +129,15 @@ export class Renderer {
         });
 
         //Scene Buffer
-        this.scene_values = new ArrayBuffer(8);
+        this.scene_values = new ArrayBuffer(12);
         this.scene_views = {
             sphere_count: new Uint32Array(this.scene_values, 0, 1),
-            triangle_count: new Uint32Array(this.scene_values, 4, 1),
+            mesh_count: new Uint32Array(this.scene_values, 4, 1),
+            triangle_count: new Uint32Array(this.scene_values, 8, 1),
         }
         this.scene_buffer = this.device.createBuffer({
             label: 'scene_buffer',
-            size: 8,
+            size: 12,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         })
 
@@ -153,13 +157,27 @@ export class Renderer {
         this.triangle_buffer = this.device.createBuffer({
             size: 128 * 1000, //Will def need to increase this at some point
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-        })
+        });
+
+        //Mesh Buffer
+        this.mesh_buffer = this.device.createBuffer({
+            size: 16 * 100,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+
+        //Bounding Box Buffer
+        this.bounding_box_buffer = this.device.createBuffer({
+            size: 32 * 100,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
     }
 
     getRayTracingShaderCode(){
         const shader_code = `
             ${common_shader}
             ${random_shader}
+            ${material_shader}
+            ${hitinfo_shader}
             ${raytracer_shader}
         `
 
@@ -230,6 +248,22 @@ export class Renderer {
                         type: 'read-only-storage',
                         hasDynamicOffset: false
                     }
+                },
+                {
+                    binding: 7,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {
+                        type: 'read-only-storage',
+                        hasDynamicOffset: false
+                    }
+                },
+                {
+                    binding: 8,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {
+                        type: 'read-only-storage',
+                        hasDynamicOffset: false
+                    }
                 }
             ]
         });
@@ -278,6 +312,18 @@ export class Renderer {
                     binding: 6,
                     resource: {
                         buffer: this.triangle_buffer
+                    }
+                },
+                {
+                    binding: 7,
+                    resource: {
+                        buffer: this.mesh_buffer
+                    }
+                },
+                {
+                    binding: 8,
+                    resource: {
+                        buffer: this.bounding_box_buffer
                     }
                 }
             ]
@@ -395,14 +441,21 @@ export class Renderer {
             this.device.queue.writeBuffer(this.sphere_buffer, 0, scene.spheres_data, 0, scene.spheres_data.byteLength);
 
             //Triangle Data
-            this.device.queue.writeBuffer(this.triangle_buffer, 0, scene.meshes_data, 0, scene.meshes_data.byteLength);
+            this.device.queue.writeBuffer(this.triangle_buffer, 0, scene.triangles_data, 0, scene.triangles_data.byteLength);
 
             //Material Data
             this.device.queue.writeBuffer(this.material_buffer, 0, scene.materials_data, 0, scene.materials_data.byteLength);
 
+            //Mesh Data
+            this.device.queue.writeBuffer(this.mesh_buffer, 0, scene.meshes_data, 0, scene.meshes_data.byteLength);
+ 
+            //Bounding Box Data
+            this.device.queue.writeBuffer(this.bounding_box_buffer, 0, scene.bounding_box_data, 0, scene.bounding_box_data.byteLength);
+
             //Scene Data
             this.scene_views.sphere_count[0] = scene.spheres_count;
             this.scene_views.triangle_count[0] = scene.triangle_count;
+            this.scene_views.mesh_count[0] = scene.meshes_count;
             this.device.queue.writeBuffer(this.scene_buffer, 0, this.scene_values);
         }
 

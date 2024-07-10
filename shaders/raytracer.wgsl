@@ -1,16 +1,11 @@
-const INFINITY: f32 = 3.402823466e+38;
-const PI: f32 = 3.14159265359;
 
-const MATERIAL_LAMBERTIAN: u32 = 0u;
-const MATERIAL_METAL: u32 = 1u;
-const MATERIAL_DIELECTRIC: u32 = 2u;
-const MATERIAL_EMISSIVE: u32 = 3u;
 
 struct Ray {
     pos: vec3<f32>, //origin
     min: f32, //distance at which intersection testing begins
     dir: vec3<f32>, //direction (normalized)
-    max: f32, //distance at which intersection testing ends
+    max: f32, //distance at which intersection testing ends,
+    inv_dir: vec3<f32> //precomputed for boudning box intersection testing
 };
 
 struct Sphere {
@@ -32,22 +27,25 @@ struct Triangle {
     uv_c: vec2<f32>,
 };
 
+struct BoundingBox {
+    min: vec3<f32>,
+    max: vec3<f32>
+}
+
+struct Mesh {
+    bounding_box_index: u32,
+    first_triangle_index: u32,
+    triangle_count: u32,   
+}
+
 struct Scene {
     sphere_count: u32,
+    mesh_count: u32,
     triangle_count: u32,
 };
 
 struct SphereData {
     spheres: array<Sphere>
-}
-
-struct Material {
-    attenuation: vec3<f32>,
-    metalic_fuzz: f32,
-    emissive_color: vec3<f32>,
-    emissive_strength: f32,
-    material_flag: u32,
-    refractive_index: f32,
 }
 
 struct MaterialData {
@@ -58,40 +56,18 @@ struct TriangleData {
     triangles: array<Triangle>
 }
 
-struct HitInfo {
-    hit: bool,
-    t: f32,
-    p: vec3<f32>,
-    normal: vec3<f32>,
-    color: vec3<f32>,
-    material: Material,
-    front_face: bool,
-};
+struct MeshData {
+    meshes: array<Mesh>
+}
+
+struct BoundingBoxData {
+    bounding_boxes: array<BoundingBox>
+}
 
 struct ScatterInfo {
     ray: Ray,
     attenuation: vec3<f32>,
 }
-
-//Hardcoded subpixel offsets for super sampling according to DirectX MSAA for 1,2,4,8,16 samples
-//TODO: Look into 2,3 Halton sequence for desired number of sample offsets
-const s1: array<vec2<f32>, 1> = array<vec2<f32>, 1>(vec2<f32>(0.5, 0.5));
-const s2: array<vec2<f32>, 2> = array<vec2<f32>, 2>(vec2<f32>(0.25, 0.25), vec2<f32>(0.75, 0.75));
-const s4: array<vec2<f32>, 4> = array<vec2<f32>, 4>(vec2<f32>(0.375, 0.125), vec2<f32>(0.875, 0.375), 
-                                                    vec2<f32>(0.625, 0.875), vec2<f32>(0.125, 0.625));
-const s8: array<vec2<f32>, 8> = array<vec2<f32>, 8>(vec2<f32>(0.5625, 0.6875), vec2<f32>(0.4375, 0.3125), 
-                                                    vec2<f32>(0.8125, 0.4375), vec2<f32>(0.3125, 0.8125),
-                                                    vec2<f32>(0.1875, 0.1875), vec2<f32>(0.0625, 0.5625),
-                                                    vec2<f32>(0.6875, 0.0625), vec2<f32>(0.9375, 0.9375));
-const s16: array<vec2<f32>, 16> = array<vec2<f32>, 16>(vec2<f32>(0.5625, 0.4375), vec2<f32>(0.4375, 0.6875),
-                                                    vec2<f32>(0.3125, 0.375), vec2<f32>(0.75, 0.5625),
-                                                    vec2<f32>(0.1875, 0.625), vec2<f32>(0.625, 0.1875),
-                                                    vec2<f32>(0.1875, 0.3125), vec2<f32>(0.6875, 0.8125),
-                                                    vec2<f32>(0.375, 0.125), vec2<f32>(0.5, 0.9375),
-                                                    vec2<f32>(0.25, 0.875), vec2<f32>(0.125, 0.25),
-                                                    vec2<f32>(0.0, 0.5), vec2<f32>(0.9375, 0.75),
-                                                    vec2<f32>(0.875, 0.0625), vec2<f32>(0.0625, 0.0));
-
 
 @group(0) @binding(0) var<storage, read_write> image_buffer: array<vec3f>;
 @group(0) @binding(1) var<uniform> camera: Camera;
@@ -100,108 +76,10 @@ const s16: array<vec2<f32>, 16> = array<vec2<f32>, 16>(vec2<f32>(0.5625, 0.4375)
 @group(0) @binding(4) var<storage, read> sphere_data: SphereData;
 @group(0) @binding(5) var<storage, read> material_data: MaterialData;
 @group(0) @binding(6) var<storage, read> triangle_data: TriangleData;
+@group(0) @binding(7) var<storage, read> mesh_data: MeshData;
+@group(0) @binding(8) var<storage, read> bounding_box_data: BoundingBoxData;
 
-fn hit_sphere(sphere: Sphere, ray: Ray) -> HitInfo {
-    var oc: vec3<f32> = sphere.pos - ray.pos;
-    var a: f32 = dot(ray.dir, ray.dir);
-    var h: f32 = dot(ray.dir, oc);
-    var c: f32 = length(oc) * length(oc) - sphere.radius * sphere.radius;
-    var discriminant: f32 = h * h - a * c;
-
-    var hit_info: HitInfo;
-
-    if(discriminant < 0.0){
-        hit_info.hit = false;
-        return hit_info;
-    }
-
-    var sqrtd = sqrt(discriminant);
-
-    var root = (h - sqrtd) / a;
-    if(root <= ray.min || root >= ray.max){
-        root = (h + sqrtd) / a;
-        if(root <= ray.min || root >= ray.max){
-            hit_info.hit = false;
-            return hit_info;
-        }
-    }
-
-    hit_info.hit = true;
-    hit_info.t = root;
-    hit_info.p = ray.pos + hit_info.t * ray.dir;
-
-    var outward_normal: vec3<f32> = (hit_info.p - sphere.pos) / sphere.radius;
-    hit_info.front_face = dot(ray.dir, outward_normal) < 0.0;
-    if(hit_info.front_face){
-        hit_info.normal = outward_normal;
-    } else {
-        hit_info.normal = -outward_normal;
-    }
-    
-    hit_info.material = material_data.materials[sphere.material_index];
-
-    return hit_info;
-
-}
-
-fn hit_triangle(triangle: Triangle, ray: Ray) -> HitInfo {
-
-    var hit_info: HitInfo;
-    let edge_ab: vec3<f32> = triangle.pos_b - triangle.pos_a;
-    let edge_ac: vec3<f32> = triangle.pos_c - triangle.pos_a;
-    let cross_ac: vec3<f32> = cross(ray.dir, edge_ac);
-    let det: f32 = dot(edge_ab, cross_ac);
-
-    //Check if parallel
-    if(det > -0.0001 && det < 0.0001){
-        hit_info.hit = false;
-        return hit_info;
-    }
-    
-    let inv_det: f32 = 1.0 / det;
-    let s: vec3<f32> = ray.pos - triangle.pos_a;
-    let u: f32 = dot(s, cross_ac) * inv_det;
-
-    if(u < 0.0 || u > 1.0){
-        hit_info.hit = false;
-        return hit_info;
-    }
-
-    let cross_ab: vec3<f32> = cross(s, edge_ab);
-    let v: f32 = dot(ray.dir, cross_ab) * inv_det;
-
-    if(v < 0.0 || u + v > 1.0){
-        hit_info.hit = false;
-        return hit_info;
-    }
-
-    let t: f32 = dot(edge_ac, cross_ab) * inv_det;
-
-    if(t > ray.min && t < ray.max){
-        hit_info.hit = true;
-    } else {
-        hit_info.hit = false;
-        return hit_info;
-    }
-
-    let w: f32 = 1.0 - u - v;
-
-    hit_info.t = t;
-    hit_info.p = ray.pos + t * ray.dir;
-    hit_info.normal = normalize(triangle.normal_a * w + triangle.normal_b * u + triangle.normal_c * v);
-    hit_info.material = material_data.materials[triangle.material_index];
-
-    //Only Show Front Face. TODO: Make this an option
-    if(dot(ray.dir, hit_info.normal) < 0.0){
-        hit_info.front_face = true;
-    } else {
-        hit_info.front_face = false;
-        hit_info.hit = false;
-    }
-
-    return hit_info;
-}
-
+var<private> debug_var: f32 = 0;
 
 fn intersect_ray(ray: Ray) -> HitInfo{
     var closest_hit: HitInfo;
@@ -215,14 +93,31 @@ fn intersect_ray(ray: Ray) -> HitInfo{
             closest_hit = hit_info;
         }
     }
-
-    for(var i: u32 = 0u; i < scene.triangle_count; i = i + 1u){
-        var triangle: Triangle = triangle_data.triangles[i];
-        var hit_info: HitInfo = hit_triangle(triangle, ray);
-        if(hit_info.hit && hit_info.t < closest_hit.t){
-            closest_hit = hit_info;
+    
+    for(var i: u32 = 0u; i < scene.mesh_count; i = i + 1u){
+        var mesh: Mesh = mesh_data.meshes[i];
+        var bb_hit_info: HitInfo = hit_bounding_box(bounding_box_data.bounding_boxes[mesh.bounding_box_index], ray);
+        if(bb_hit_info.hit){
+            debug_var = debug_var + 0.25;
+            // bb_hit_info.material = material_data.materials[0];
+            // closest_hit = bb_hit_info;
+             for(var j: u32 = mesh.first_triangle_index; j < mesh.first_triangle_index + mesh.triangle_count; j = j + 1u){
+                var triangle: Triangle = triangle_data.triangles[j];
+                var hit_info: HitInfo = hit_triangle(triangle, ray);
+                if(hit_info.hit && hit_info.t < closest_hit.t){
+                    closest_hit = hit_info;
+                }
+            }
         }
     }
+
+    // for(var i: u32 = 0u; i < scene.triangle_count; i = i + 1u){
+    //     var triangle: Triangle = triangle_data.triangles[i];
+    //     var hit_info: HitInfo = hit_triangle(triangle, ray);
+    //     if(hit_info.hit && hit_info.t < closest_hit.t){
+    //         closest_hit = hit_info;
+    //     }
+    // }
 
     return closest_hit;
 }
@@ -286,6 +181,7 @@ fn scatter(ray: Ray, hit_info: HitInfo, state_ptr: ptr<function, u32>) -> Scatte
     scatter_info.ray = ray;
     scatter_info.ray.pos = hit_info.p;
     scatter_info.ray.dir = scatter_direction;
+    scatter_info.ray.inv_dir = (1.0 /scatter_info.ray.dir );
     scatter_info.attenuation = hit_info.material.attenuation;
 
     return scatter_info;
@@ -294,7 +190,7 @@ fn scatter(ray: Ray, hit_info: HitInfo, state_ptr: ptr<function, u32>) -> Scatte
 fn trace_ray(ray: Ray, state_ptr: ptr<function, u32>) -> vec3<f32> {
 
     var current_ray: Ray = ray;
-    let max_bounces: u32 = 1u;
+    let max_bounces: u32 = 100u;
     var ray_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
     var incoming_light: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
 
@@ -415,6 +311,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // var ray: Ray = generateThinLensRay(pixel_pos, &pixel_seed);
     ray.pos = (camera.camera_to_world_matrix * vec4<f32>(ray.pos, 1.0)).xyz;
     ray.dir = (camera.camera_to_world_matrix * vec4<f32>(ray.dir, 0.0)).xyz;
+    ray.inv_dir = (1.0 / ray.dir);
 
     //Calculate Pixel Color
     let rays_per_pixel: u32 = 1u;
@@ -423,6 +320,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         pixel_color += trace_ray(ray, &pixel_seed);
     }
     pixel_color /= f32(rays_per_pixel);
+
+    //DEBUG
+    // pixel_color = vec3<f32>(debug_var, 0, 0);
 
     //Accumulate New Pixel Value
     pixel += pixel_color;

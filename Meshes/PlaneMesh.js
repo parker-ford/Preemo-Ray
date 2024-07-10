@@ -8,9 +8,6 @@ export class PlaneMesh extends Mesh {
         this.width = options.width || 1;
         this.height = options.height || 1; 
 
-        //Triangles
-        this.triangles = [];
-
         this.calculateVertexCoordinates();
         this.constructTriangles();
     }

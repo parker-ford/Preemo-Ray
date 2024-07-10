@@ -3,6 +3,7 @@ import { Sphere } from './Sphere.js';
 import { Material } from './Material.js';
 import { Mesh } from './Meshes/Mesh.js';
 import { vec3, vec4 } from 'gl-matrix';
+import { BoundingBox } from './BoundingBox.js';
 
 export class Scene {
 
@@ -26,8 +27,14 @@ export class Scene {
         //Meshes
         this.meshes = [];
         this.meshes_count = 0;
-        this.triangle_count = 0;
         this.meshes_data = new ArrayBuffer(0);
+
+        //Triangles
+        this.triangle_count = 0;
+        this.triangles_data = new ArrayBuffer(0);
+
+        //Bounding Box
+        this.bounding_box_data = new ArrayBuffer(0);
         
         //Debug
         this.print = false;
@@ -46,10 +53,18 @@ export class Scene {
             this.materials_count++;
         }
         if(object instanceof Mesh){
+
+            //Mesh
             this.meshes.push(object);
-            this.meshes_data = new ArrayBuffer(this.meshes_data.byteLength + object.getSize());
+            this.meshes_data = new ArrayBuffer(this.meshes_data.byteLength + Mesh.mesh_size);
             this.meshes_count++;
+            
+            //Triangles
+            this.triangles_data = new ArrayBuffer(this.triangles_data.byteLength + object.getSize());
             this.triangle_count += object.triangle_count;
+
+            //Bounding Box
+            this.bounding_box_data = new ArrayBuffer(this.bounding_box_data.byteLength + BoundingBox.size);
         }
     }
 
@@ -118,35 +133,70 @@ export class Scene {
     }
 
     setupMeshBuffer(){
+        var triangle_offset = 0;
         var mesh_offset = 0;
+        var bounding_box_offset = 0;
+
         this.meshes.forEach(mesh => {
+
+            mesh.transformToWorldSpace();
+            mesh.setupBoundingBox()
+
+            console.log(mesh.bounding_box);
+
+            const MeshValues = new ArrayBuffer(Mesh.mesh_size);
+            const MeshViews = {
+                bounding_box_index: new Uint32Array(MeshValues, 0, 1),
+                first_triangle_index: new Uint32Array(MeshValues, 4, 1),
+                triangle_count: new Uint32Array(MeshValues, 8, 1),
+            };
+            MeshViews.bounding_box_index[0] = bounding_box_offset;
+            MeshViews.first_triangle_index[0] = triangle_offset;
+            MeshViews.triangle_count[0] = mesh.triangle_count;
+            const meshView = new Uint8Array(MeshValues);
+            const allMeshView = new Uint8Array(this.meshes_data, mesh_offset * Mesh.mesh_size, Mesh.mesh_size);
+            allMeshView.set(meshView);
+            mesh_offset++;
+
+            const BoundingBoxValues = new ArrayBuffer(32);
+            const BoundingBoxViews = {
+                min: new Float32Array(BoundingBoxValues, 0, 3),
+                max: new Float32Array(BoundingBoxValues, 16, 3),
+            };
+            BoundingBoxViews.min.set(mesh.bounding_box.min);
+            BoundingBoxViews.max.set(mesh.bounding_box.max);
+            const boundingBoxView = new Uint8Array(BoundingBoxValues);
+            const allBoundingBoxView = new Uint8Array(this.bounding_box_data, bounding_box_offset * BoundingBox.size, BoundingBox.size);
+            allBoundingBoxView.set(boundingBoxView);
+            bounding_box_offset++;
+            
             mesh.triangles.forEach(triangle => {
 
-                //Convert to world space. This is being done on CPU side because it simple and only will happen once for now. This prevents real-time animation. I will revisit this at a later time.
-                //This should also be in its own function probably but....
-                var world_pos_a = vec4.fromValues(triangle.pos_a[0], triangle.pos_a[1], triangle.pos_a[2], 1);
-                world_pos_a = vec4.transformMat4(vec4.create(), world_pos_a, mesh.transform.TRS);
-                triangle.pos_a = vec3.fromValues(world_pos_a[0], world_pos_a[1], world_pos_a[2]);
+                // //Convert to world space. This is being done on CPU side because it simple and only will happen once for now. This prevents real-time animation. I will revisit this at a later time.
+                // //This should also be in its own function probably but....
+                // var world_pos_a = vec4.fromValues(triangle.pos_a[0], triangle.pos_a[1], triangle.pos_a[2], 1);
+                // world_pos_a = vec4.transformMat4(vec4.create(), world_pos_a, mesh.transform.TRS);
+                // triangle.pos_a = vec3.fromValues(world_pos_a[0], world_pos_a[1], world_pos_a[2]);
 
-                let world_pos_b = vec4.fromValues(triangle.pos_b[0], triangle.pos_b[1], triangle.pos_b[2], 1);
-                world_pos_b = vec4.transformMat4(vec4.create(), world_pos_b, mesh.transform.TRS);
-                triangle.pos_b = vec3.fromValues(world_pos_b[0], world_pos_b[1], world_pos_b[2]);
+                // let world_pos_b = vec4.fromValues(triangle.pos_b[0], triangle.pos_b[1], triangle.pos_b[2], 1);
+                // world_pos_b = vec4.transformMat4(vec4.create(), world_pos_b, mesh.transform.TRS);
+                // triangle.pos_b = vec3.fromValues(world_pos_b[0], world_pos_b[1], world_pos_b[2]);
 
-                let world_pos_c = vec4.fromValues(triangle.pos_c[0], triangle.pos_c[1], triangle.pos_c[2], 1);
-                world_pos_c = vec4.transformMat4(vec4.create(), world_pos_c, mesh.transform.TRS);
-                triangle.pos_c = vec3.fromValues(world_pos_c[0], world_pos_c[1], world_pos_c[2]);
+                // let world_pos_c = vec4.fromValues(triangle.pos_c[0], triangle.pos_c[1], triangle.pos_c[2], 1);
+                // world_pos_c = vec4.transformMat4(vec4.create(), world_pos_c, mesh.transform.TRS);
+                // triangle.pos_c = vec3.fromValues(world_pos_c[0], world_pos_c[1], world_pos_c[2]);
 
-                var world_normal_a = vec4.fromValues(triangle.normal_a[0], triangle.normal_a[1], triangle.normal_a[2], 0);
-                world_normal_a = vec4.transformMat4(vec4.create(), world_normal_a, mesh.transform.TRS_I_T);
-                triangle.normal_a = vec3.fromValues(world_normal_a[0], world_normal_a[1], world_normal_a[2]);
+                // var world_normal_a = vec4.fromValues(triangle.normal_a[0], triangle.normal_a[1], triangle.normal_a[2], 0);
+                // world_normal_a = vec4.transformMat4(vec4.create(), world_normal_a, mesh.transform.TRS_I_T);
+                // triangle.normal_a = vec3.fromValues(world_normal_a[0], world_normal_a[1], world_normal_a[2]);
 
-                var world_normal_b = vec4.fromValues(triangle.normal_b[0], triangle.normal_b[1], triangle.normal_b[2], 0);
-                world_normal_b = vec4.transformMat4(vec4.create(), world_normal_b, mesh.transform.TRS_I_T);
-                triangle.normal_b = vec3.fromValues(world_normal_b[0], world_normal_b[1], world_normal_b[2]);
+                // var world_normal_b = vec4.fromValues(triangle.normal_b[0], triangle.normal_b[1], triangle.normal_b[2], 0);
+                // world_normal_b = vec4.transformMat4(vec4.create(), world_normal_b, mesh.transform.TRS_I_T);
+                // triangle.normal_b = vec3.fromValues(world_normal_b[0], world_normal_b[1], world_normal_b[2]);
 
-                var world_normal_c = vec4.fromValues(triangle.normal_c[0], triangle.normal_c[1], triangle.normal_c[2], 0);
-                world_normal_c = vec4.transformMat4(vec4.create(), world_normal_c, mesh.transform.TRS_I_T);
-                triangle.normal_c = vec3.fromValues(world_normal_c[0], world_normal_c[1], world_normal_c[2]);
+                // var world_normal_c = vec4.fromValues(triangle.normal_c[0], triangle.normal_c[1], triangle.normal_c[2], 0);
+                // world_normal_c = vec4.transformMat4(vec4.create(), world_normal_c, mesh.transform.TRS_I_T);
+                // triangle.normal_c = vec3.fromValues(world_normal_c[0], world_normal_c[1], world_normal_c[2]);
 
                 const TriangleValues = new ArrayBuffer(128);
                 const TriangleViews = {
@@ -173,10 +223,10 @@ export class Scene {
                 TriangleViews.uv_c.set(triangle.uv_c);
 
                 const triangleView = new Uint8Array(TriangleValues);
-                const allTrianglesView = new Uint8Array(this.meshes_data, mesh_offset * Mesh.triangle_size, Mesh.triangle_size);
+                const allTrianglesView = new Uint8Array(this.triangles_data, triangle_offset * Mesh.triangle_size, Mesh.triangle_size);
                 allTrianglesView.set(triangleView);
-                mesh_offset++;
-            })
+                triangle_offset++;
+            });
         })
     }
 

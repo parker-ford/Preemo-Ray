@@ -10,17 +10,15 @@ export class OBJMesh extends Mesh {
         this.height = options.height || 1;
         this.depth = options.depth || 1; 
         
-        //Triangles
-        this.triangles = [];
-        
         // this.calculateVertexCoordinates();
         // this.constructTriangles();
         this.loadedPromise = this.init();
-
     }
 
     async init() {
         await this.calculateVertices();
+        // this.transformToWorldSpace();
+        // this.setupBoundingBox();
     }
 
     loaded() {
