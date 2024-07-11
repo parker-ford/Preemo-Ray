@@ -35,7 +35,7 @@ struct BoundingBox {
 struct Mesh {
     bounding_box_index: u32,
     first_triangle_index: u32,
-    triangle_count: u32,   
+    triangle_count: u32,
 }
 
 struct Scene {
