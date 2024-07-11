@@ -190,7 +190,7 @@ fn scatter(ray: Ray, hit_info: HitInfo, state_ptr: ptr<function, u32>) -> Scatte
 fn trace_ray(ray: Ray, state_ptr: ptr<function, u32>) -> vec3<f32> {
 
     var current_ray: Ray = ray;
-    let max_bounces: u32 = 100u;
+    let max_bounces: u32 = 10u;
     var ray_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
     var incoming_light: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
 
@@ -210,7 +210,7 @@ fn trace_ray(ray: Ray, state_ptr: ptr<function, u32>) -> vec3<f32> {
             //Stop if emissive material
             if(hit_info.material.material_flag == MATERIAL_EMISSIVE){
                 ray_color *= color_from_emission;
-                break; //Not sure about breaking here
+                break; 
             }
 
             var scatter_info: ScatterInfo = scatter(current_ray, hit_info, state_ptr);
@@ -281,7 +281,7 @@ fn generateThinLensRay(pixel: vec2<f32>, state_ptr: ptr<function, u32>) -> Ray{
 
 
 
-@compute @workgroup_size(1,1,1)
+@compute @workgroup_size(8,8,1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
 
@@ -308,7 +308,6 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     //Generate Ray and Transform to World Space
     var ray: Ray = generatePinholeRay(pixel_pos, &pixel_seed);
-    // var ray: Ray = generateThinLensRay(pixel_pos, &pixel_seed);
     ray.pos = (camera.camera_to_world_matrix * vec4<f32>(ray.pos, 1.0)).xyz;
     ray.dir = (camera.camera_to_world_matrix * vec4<f32>(ray.dir, 0.0)).xyz;
     ray.inv_dir = (1.0 / ray.dir);
@@ -322,7 +321,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     pixel_color /= f32(rays_per_pixel);
 
     //DEBUG
-    // pixel_color = vec3<f32>(debug_var, 0, 0);
+    // pixel_color = pixel_color * 0.5 + 0.5 * vec3<f32>(debug_var, 0, 0);
 
     //Accumulate New Pixel Value
     pixel += pixel_color;

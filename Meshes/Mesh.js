@@ -12,7 +12,14 @@ export class Mesh {
         this.material_id = options.material_id || 0;
         this.transform = new Transform({});
         this.bounding_box = new BoundingBox();
-        
+        this.has_setup = false;
+    }
+
+    setup(){
+        if(this.has_setup) return;
+        this.transformToWorldSpace();
+        this.setupBoundingBox()
+        this.has_setup = true;
     }
 
     transformToWorldSpace(){

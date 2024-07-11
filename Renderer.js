@@ -439,14 +439,15 @@ export class Renderer {
             scene.setupBuffers();
             //Sphere Data
             this.device.queue.writeBuffer(this.sphere_buffer, 0, scene.spheres_data, 0, scene.spheres_data.byteLength);
-
+            
             //Triangle Data
             this.device.queue.writeBuffer(this.triangle_buffer, 0, scene.triangles_data, 0, scene.triangles_data.byteLength);
-
+            
             //Material Data
             this.device.queue.writeBuffer(this.material_buffer, 0, scene.materials_data, 0, scene.materials_data.byteLength);
-
+            
             //Mesh Data
+            console.log(scene.meshes_data.byteLength)
             this.device.queue.writeBuffer(this.mesh_buffer, 0, scene.meshes_data, 0, scene.meshes_data.byteLength);
  
             //Bounding Box Data
@@ -472,7 +473,7 @@ export class Renderer {
         const ray_trace_pass = commandEncoder.beginComputePass();
         ray_trace_pass.setPipeline(this.ray_tracing_pipeline);
         ray_trace_pass.setBindGroup(0, this.ray_tracing_bind_group);
-        ray_trace_pass.dispatchWorkgroups(this.canvas.width, this.canvas.height, 1);
+        ray_trace_pass.dispatchWorkgroups(this.canvas.width/8.0, this.canvas.height/8.0, 1);
         ray_trace_pass.end();
 
         const texture_view = this.context.getCurrentTexture().createView();
