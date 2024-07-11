@@ -1,3 +1,4 @@
+import { Triangle } from "../Triangle.js";
 import { Mesh } from "./Mesh.js";
 
 export class CubeMesh extends Mesh {
@@ -84,36 +85,32 @@ export class CubeMesh extends Mesh {
             for(let j = 0; j < y; j++){
             
                 //Top Triangle
-                const top_triangle = {};
-                top_triangle.pos_a = this.vertexCoordinates[(j + (i * (y + 1)) + offset)];
-                top_triangle.pos_b = this.vertexCoordinates[((j + 1) + (i * (y + 1))) + offset];
-                top_triangle.pos_c = this.vertexCoordinates[((j + 1) + ((i + 1) * (y + 1))) + offset];
-
-                top_triangle.uv_a = this.uvCoordinates[(j + (i * (y + 1)) + offset)];
-                top_triangle.uv_b = this.uvCoordinates[((j + 1) + (i * (y + 1))) + offset];
-                top_triangle.uv_c = this.uvCoordinates[((j + 1) + ((i + 1) * (y + 1))) + offset];
-
-                top_triangle.normal_a = this.normalCoordinates[(j + (i * (y + 1)) + offset)];
-                top_triangle.normal_b = this.normalCoordinates[((j + 1) + (i * (y + 1))) + offset];
-                top_triangle.normal_c = this.normalCoordinates[((j + 1) + ((i + 1) * (y + 1))) + offset];
+                const top_triangle = new Triangle({
+                    pos_a: this.vertexCoordinates[(j + (i * (y + 1)) + offset)],
+                    pos_b: this.vertexCoordinates[((j + 1) + (i * (y + 1))) + offset],
+                    pos_c: this.vertexCoordinates[((j + 1) + ((i + 1) * (y + 1))) + offset],
+                    uv_a: this.uvCoordinates[(j + (i * (y + 1)) + offset)],
+                    uv_b: this.uvCoordinates[((j + 1) + (i * (y + 1))) + offset],
+                    uv_c: this.uvCoordinates[((j + 1) + ((i + 1) * (y + 1))) + offset],
+                    normal_a: this.normalCoordinates[(j + (i * (y + 1)) + offset)],
+                    normal_b: this.normalCoordinates[((j + 1) + (i * (y + 1))) + offset],
+                    normal_c: this.normalCoordinates[((j + 1) + ((i + 1) * (y + 1))) + offset],
+                });
 
 
                 //Bottom Triangle
+                const bottom_triangle = new Triangle({
+                    pos_a: this.vertexCoordinates[((j + 1) + ((i + 1) * (y + 1))) + offset],
+                    pos_b: this.vertexCoordinates[(j + ((i + 1) * (y + 1))) + offset],
+                    pos_c: this.vertexCoordinates[(j + (i * (y + 1))) + offset],
+                    uv_a: this.uvCoordinates[((j + 1) + ((i + 1) * (y + 1))) + offset],
+                    uv_b: this.uvCoordinates[(j + ((i + 1) * (y + 1))) + offset],
+                    uv_c: this.uvCoordinates[(j + (i * (y + 1))) + offset],
+                    normal_a: this.normalCoordinates[((j + 1) + ((i + 1) * (y + 1))) + offset],
+                    normal_b: this.normalCoordinates[(j + ((i + 1) * (y + 1))) + offset],
+                    normal_c: this.normalCoordinates[(j + (i * (y + 1))) + offset],
+                });
 
-                const bottom_triangle = {};
-                bottom_triangle.pos_a = this.vertexCoordinates[((j + 1) + ((i + 1) * (y + 1))) + offset];
-                bottom_triangle.pos_b = this.vertexCoordinates[(j + ((i + 1) * (y + 1))) + offset];
-                bottom_triangle.pos_c = this.vertexCoordinates[(j + (i * (y + 1))) + offset];
-
-                bottom_triangle.uv_a = this.uvCoordinates[((j + 1) + ((i + 1) * (y + 1))) + offset];
-                bottom_triangle.uv_b = this.uvCoordinates[(j + ((i + 1) * (y + 1))) + offset];
-                bottom_triangle.uv_c = this.uvCoordinates[(j + (i * (y + 1))) + offset];
-
-                bottom_triangle.normal_a = this.normalCoordinates[((j + 1) + ((i + 1) * (y + 1))) + offset]
-                bottom_triangle.normal_b = this.normalCoordinates[(j + ((i + 1) * (y + 1))) + offset];
-                bottom_triangle.normal_c = this.normalCoordinates[(j + (i * (y + 1))) + offset];
-            
-            
                 this.triangles.push(top_triangle);
                 this.triangles.push(bottom_triangle);
                 this.triangle_count += 2;

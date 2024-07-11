@@ -1,3 +1,4 @@
+import { Triangle } from "../Triangle.js";
 import { Mesh } from "./Mesh.js";
 
 export class PlaneMesh extends Mesh {
@@ -36,33 +37,44 @@ export class PlaneMesh extends Mesh {
             for(let j = 0; j < this.height; j++){
             
                 //Top Triangle
-                const top_triangle = {};
-                top_triangle.pos_a = this.vertexCoordinates[j + (i * (this.height + 1))];
-                top_triangle.pos_b = this.vertexCoordinates[(j + 1) + (i * (this.height + 1))];
-                top_triangle.pos_c = this.vertexCoordinates[(j + 1) + ((i + 1) * (this.height + 1))];
+                // const top_triangle = {};
+                // top_triangle.pos_a = this.vertexCoordinates[j + (i * (this.height + 1))];
+                // top_triangle.pos_b = this.vertexCoordinates[(j + 1) + (i * (this.height + 1))];
+                // top_triangle.pos_c = this.vertexCoordinates[(j + 1) + ((i + 1) * (this.height + 1))];
 
-                top_triangle.uv_a = this.uvCoordinates[j + (i * (this.height + 1))];
-                top_triangle.uv_b = this.uvCoordinates[(j + 1) + (i * (this.height + 1))];
-                top_triangle.uv_c = this.uvCoordinates[(j + 1) + ((i + 1) * (this.height + 1))];
+                // top_triangle.uv_a = this.uvCoordinates[j + (i * (this.height + 1))];
+                // top_triangle.uv_b = this.uvCoordinates[(j + 1) + (i * (this.height + 1))];
+                // top_triangle.uv_c = this.uvCoordinates[(j + 1) + ((i + 1) * (this.height + 1))];
 
-                top_triangle.normal_a = this.normalCoordinates[j + (i * (this.height + 1))];
-                top_triangle.normal_b = this.normalCoordinates[(j + 1) + (i * (this.height + 1))];
-                top_triangle.normal_c = this.normalCoordinates[(j + 1) + ((i + 1) * (this.height + 1))];
+                // top_triangle.normal_a = this.normalCoordinates[j + (i * (this.height + 1))];
+                // top_triangle.normal_b = this.normalCoordinates[(j + 1) + (i * (this.height + 1))];
+                // top_triangle.normal_c = this.normalCoordinates[(j + 1) + ((i + 1) * (this.height + 1))];
+
+                const top_triangle = new Triangle({
+                    pos_a: this.vertexCoordinates[j + (i * (this.height + 1))],
+                    pos_b: this.vertexCoordinates[(j + 1) + (i * (this.height + 1))],
+                    pos_c: this.vertexCoordinates[(j + 1) + ((i + 1) * (this.height + 1))],
+                    uv_a: this.uvCoordinates[j + (i * (this.height + 1))],
+                    uv_b: this.uvCoordinates[(j + 1) + (i * (this.height + 1))],
+                    uv_c: this.uvCoordinates[(j + 1) + ((i + 1) * (this.height + 1))],
+                    normal_a: this.normalCoordinates[j + (i * (this.height + 1))],
+                    normal_b: this.normalCoordinates[(j + 1) + (i * (this.height + 1))],
+                    normal_c: this.normalCoordinates[(j + 1) + ((i + 1) * (this.height + 1))],
+                });
 
 
                 //Bottom Triangle
-                const bottom_triangle = {};
-                bottom_triangle.pos_a = this.vertexCoordinates[(j + 1) + ((i + 1) * (this.height + 1))];
-                bottom_triangle.pos_b = this.vertexCoordinates[j + ((i + 1) * (this.height + 1))];
-                bottom_triangle.pos_c = this.vertexCoordinates[j + (i * (this.height + 1))];
-
-                bottom_triangle.uv_a = this.uvCoordinates[(j + 1) + ((i + 1) * (this.height + 1))];
-                bottom_triangle.uv_b = this.uvCoordinates[j + ((i + 1) * (this.height + 1))];4
-                bottom_triangle.uv_c = this.uvCoordinates[j + (i * (this.height + 1))];
-
-                bottom_triangle.normal_a = this.normalCoordinates[(j + 1) + ((i + 1) * (this.height + 1))];
-                bottom_triangle.normal_b = this.normalCoordinates[j + ((i + 1) * (this.height + 1))];
-                bottom_triangle.normal_c = this.normalCoordinates[j + (i * (this.height + 1))];
+                const bottom_triangle = new Triangle({
+                    pos_a: this.vertexCoordinates[(j + 1) + ((i + 1) * (this.height + 1))],
+                    pos_b: this.vertexCoordinates[j + ((i + 1) * (this.height + 1))],
+                    pos_c: this.vertexCoordinates[j + (i * (this.height + 1))],
+                    uv_a: this.uvCoordinates[(j + 1) + ((i + 1) * (this.height + 1))],
+                    uv_b: this.uvCoordinates[j + ((i + 1) * (this.height + 1))],
+                    uv_c: this.uvCoordinates[j + (i * (this.height + 1))],
+                    normal_a: this.normalCoordinates[(j + 1) + ((i + 1) * (this.height + 1))],
+                    normal_b: this.normalCoordinates[j + ((i + 1) * (this.height + 1))],
+                    normal_c: this.normalCoordinates[j + (i * (this.height + 1))],
+                });
 
                 //Push the triangles
                 this.triangles.push(top_triangle);

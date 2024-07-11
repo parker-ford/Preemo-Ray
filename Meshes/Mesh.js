@@ -1,6 +1,7 @@
 import { vec3, vec4 } from "gl-matrix";
 import { BoundingBox } from "../BoundingBox.js";
 import { Transform } from "../Transform.js";
+import { BVH } from "../BVH.js";
 
 export class Mesh {
     static triangle_size = 128
@@ -12,6 +13,7 @@ export class Mesh {
         this.material_id = options.material_id || 0;
         this.transform = new Transform({});
         this.bounding_box = new BoundingBox();
+        this.bvh = new BVH();
         this.has_setup = false;
     }
 
@@ -19,6 +21,8 @@ export class Mesh {
         if(this.has_setup) return;
         this.transformToWorldSpace();
         this.setupBoundingBox()
+        this.bvh.constructBVH(this.triangles);
+        console.log(this.bvh);
         this.has_setup = true;
     }
 

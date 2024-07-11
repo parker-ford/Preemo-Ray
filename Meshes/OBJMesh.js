@@ -1,3 +1,4 @@
+import { Triangle } from "../Triangle.js";
 import { Mesh } from "./Mesh.js";
 
 export class OBJMesh extends Mesh {
@@ -97,18 +98,18 @@ export class OBJMesh extends Mesh {
     }
 
     addTriangleFace(face){
-        const triangle = {};
-        triangle.pos_a = this.vertexCoordinates[face[0][0]];
-        triangle.pos_b = this.vertexCoordinates[face[1][0]];
-        triangle.pos_c = this.vertexCoordinates[face[2][0]];
 
-        triangle.uv_a = this.uvCoordinates[face[0][1]];
-        triangle.uv_b = this.uvCoordinates[face[1][1]];
-        triangle.uv_c = this.uvCoordinates[face[2][1]];
-
-        triangle.normal_a = this.normalCoordinates[face[0][2]];
-        triangle.normal_b = this.normalCoordinates[face[1][2]];
-        triangle.normal_c = this.normalCoordinates[face[2][2]];
+        const triangle = new Triangle({
+            pos_a: this.vertexCoordinates[face[0][0]],
+            pos_b: this.vertexCoordinates[face[1][0]],
+            pos_c: this.vertexCoordinates[face[2][0]],
+            uv_a: this.uvCoordinates[face[0][1]],
+            uv_b: this.uvCoordinates[face[1][1]],
+            uv_c: this.uvCoordinates[face[2][1]],
+            normal_a: this.normalCoordinates[face[0][2]],
+            normal_b: this.normalCoordinates[face[1][2]],
+            normal_c: this.normalCoordinates[face[2][2]],
+        });
 
         this.triangles.push(triangle);
         this.triangle_count++;
