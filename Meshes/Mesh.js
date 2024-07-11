@@ -5,7 +5,7 @@ import { BVH } from "../BVH.js";
 
 export class Mesh {
     static triangle_size = 128
-    static mesh_size = 12
+    static mesh_size = 20
 
     constructor(options){
         this.triangle_count = 0;

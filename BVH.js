@@ -9,6 +9,13 @@ export class BVH {
     }
 
     constructBVH(triangles){
+
+        //Reset
+        this.nodes = [];
+        this.node_count = 0;
+        this.root  = null;
+        this.triangles = null;
+
         this.triangles = triangles;
         this.root = new BVHNode({
             bvh: this
@@ -19,5 +26,9 @@ export class BVH {
         this.nodes.push(this.root);
         this.node_count++;
         this.root.subdivide();
+    }
+
+    getSize(){
+        return this.node_count * BVHNode.size;
     }
 }

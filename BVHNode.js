@@ -1,6 +1,8 @@
 import { vec3 } from "gl-matrix";
 
 export class BVHNode {
+    static size = 48;
+    
     constructor(options) {
         //Data for BVH construction
         this.bvh = options.bvh;
@@ -64,7 +66,6 @@ export class BVHNode {
 
         //Create child nodes for each half
         let left_count = i - this.first_triangle_index;
-        console.log("left count " + left_count);
         if(left_count == 0 || left_count == this.triangle_count){
             return;
         }
@@ -91,11 +92,6 @@ export class BVHNode {
         this.bvh.nodes.push(right_node);
 
         this.triangle_count = 0; //Only leaf nodes hold triangles
-
-        console.log("left node: " );
-        console.log(left_node);
-        console.log("right node: " );
-        console.log(right_node);
 
         //Recurse into each of the child nodes
         left_node.updateBounds();

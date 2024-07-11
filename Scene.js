@@ -35,6 +35,9 @@ export class Scene {
 
         //Bounding Box
         this.bounding_box_data = new ArrayBuffer(0);
+
+        //BVH
+        this.bvh_data = new ArrayBuffer(0);
         
         //Debug
         this.print = false;
@@ -65,6 +68,11 @@ export class Scene {
 
             //Bounding Box
             this.bounding_box_data = new ArrayBuffer(this.bounding_box_data.byteLength + BoundingBox.size);
+
+            //BVH
+            object.bvh.constructBVH(object.triangles); //THis is bad I need to rethink this
+            console.log(object.bvh.getSize());
+            this.bvh_data = new ArrayBuffer(this.bvh_data.byteLength + object.bvh.getSize());
         }
     }
 
@@ -136,18 +144,26 @@ export class Scene {
         var triangle_offset = 0;
         var mesh_offset = 0;
         var bounding_box_offset = 0;
+        var bvh_offset = 0;
 
         this.meshes.forEach(mesh => {
+
             mesh.setup();
+
             const MeshValues = new ArrayBuffer(Mesh.mesh_size);
             const MeshViews = {
                 bounding_box_index: new Uint32Array(MeshValues, 0, 1),
                 first_triangle_index: new Uint32Array(MeshValues, 4, 1),
                 triangle_count: new Uint32Array(MeshValues, 8, 1),
+                first_bvh_index: new Uint32Array(MeshValues, 12, 1),
+                bvh_node_count: new Uint32Array(MeshValues, 16, 1),
             };
             MeshViews.bounding_box_index[0] = bounding_box_offset;
             MeshViews.first_triangle_index[0] = triangle_offset;
             MeshViews.triangle_count[0] = mesh.triangle_count;
+            MeshViews.first_bvh_index[0] = bvh_offset;
+            MeshViews.bvh_node_count[0] = mesh.bvh.node_count;
+            
             const meshView = new Uint8Array(MeshValues);
             const allMeshView = new Uint8Array(this.meshes_data, mesh_offset * Mesh.mesh_size, Mesh.mesh_size);
             allMeshView.set(meshView);
@@ -164,6 +180,27 @@ export class Scene {
             const allBoundingBoxView = new Uint8Array(this.bounding_box_data, bounding_box_offset * BoundingBox.size, BoundingBox.size);
             allBoundingBoxView.set(boundingBoxView);
             bounding_box_offset++;
+
+            mesh.bvh.nodes.forEach(node => {
+                const BVHNodeValues = new ArrayBuffer(48);
+                const BVHNodeViews = {
+                    min: new Float32Array(BVHNodeValues, 0, 3),
+                    max: new Float32Array(BVHNodeValues, 16, 3),
+                    left_index: new Uint32Array(BVHNodeValues, 28, 1),
+                    first_triangle_index: new Uint32Array(BVHNodeValues, 32, 1),
+                    triangle_count: new Uint32Array(BVHNodeValues, 36, 1),
+                };
+                BVHNodeViews.min.set(node.min);
+                BVHNodeViews.max.set(node.max);
+                BVHNodeViews.left_index[0] = node.child_left_node;
+                BVHNodeViews.first_triangle_index[0] = node.first_triangle_index;
+                BVHNodeViews.triangle_count[0] = node.triangle_count;
+
+                const bvhView = new Uint8Array(BVHNodeValues);
+                const allBVHView = new Uint8Array(this.bvh_data, bvh_offset * 48, 48);
+                allBVHView.set(bvhView);
+                bvh_offset++;
+            });
             
             mesh.triangles.forEach(triangle => {
                 const TriangleValues = new ArrayBuffer(128);

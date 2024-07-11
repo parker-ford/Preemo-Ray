@@ -170,6 +170,12 @@ export class Renderer {
             size: 32 * 100,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
+
+        //BVH Buffer
+        this.bvh_buffer = this.device.createBuffer({
+            size: 48 * 1000,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        })
     }
 
     getRayTracingShaderCode(){
@@ -264,6 +270,14 @@ export class Renderer {
                         type: 'read-only-storage',
                         hasDynamicOffset: false
                     }
+                },
+                {
+                    binding: 9,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {
+                        type: 'read-only-storage',
+                        hasDynamicOffset: false
+                    }
                 }
             ]
         });
@@ -324,6 +338,12 @@ export class Renderer {
                     binding: 8,
                     resource: {
                         buffer: this.bounding_box_buffer
+                    }
+                },
+                {
+                    binding: 9,
+                    resource: {
+                        buffer: this.bvh_buffer
                     }
                 }
             ]
@@ -452,6 +472,9 @@ export class Renderer {
  
             //Bounding Box Data
             this.device.queue.writeBuffer(this.bounding_box_buffer, 0, scene.bounding_box_data, 0, scene.bounding_box_data.byteLength);
+
+            //BVH Data
+            this.device.queue.writeBuffer(this.bvh_buffer, 0, scene.bvh_data, 0, scene.bvh_data.byteLength);
 
             //Scene Data
             this.scene_views.sphere_count[0] = scene.spheres_count;

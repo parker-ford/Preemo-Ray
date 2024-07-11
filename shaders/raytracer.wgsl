@@ -32,10 +32,24 @@ struct BoundingBox {
     max: vec3<f32>
 }
 
+struct BVHNode {
+    min: vec3<f32>,
+    max: vec3<f32>,
+    left_index: u32, //right index is left + 1
+    first_triangle_index: u32,
+    triangle_count: u32,
+}
+
+struct BVH {
+    nodes: array<BVHNode> //Max nodes will need to be increased later
+}
+
 struct Mesh {
     bounding_box_index: u32,
     first_triangle_index: u32,
     triangle_count: u32,
+    first_bvh_index: u32,
+    bvh_node_count: u32,
 }
 
 struct Scene {
@@ -78,6 +92,7 @@ struct ScatterInfo {
 @group(0) @binding(6) var<storage, read> triangle_data: TriangleData;
 @group(0) @binding(7) var<storage, read> mesh_data: MeshData;
 @group(0) @binding(8) var<storage, read> bounding_box_data: BoundingBoxData;
+@group(0) @binding(9) var<storage, read> bvh_data: BVH;
 
 var<private> debug_var: f32 = 0;
 
@@ -96,9 +111,17 @@ fn intersect_ray(ray: Ray) -> HitInfo{
     
     for(var i: u32 = 0u; i < scene.mesh_count; i = i + 1u){
         var mesh: Mesh = mesh_data.meshes[i];
+        for(var j: u32 = mesh.first_bvh_index; j < mesh.first_bvh_index + mesh.bvh_node_count; j = j + 1u){
+            var bvh_node: BVHNode = bvh_data.nodes[j];
+            var hit_info: HitInfo = hit_bvh_node(bvh_node, ray);
+            if(hit_info.hit){
+                //closest_hit = hit_info;
+                debug_var = debug_var + 1.0;
+            }
+        }
         var bb_hit_info: HitInfo = hit_bounding_box(bounding_box_data.bounding_boxes[mesh.bounding_box_index], ray);
         if(bb_hit_info.hit){
-            debug_var = debug_var + 0.25;
+            // debug_var = debug_var + 0.25;
             // bb_hit_info.material = material_data.materials[0];
             // closest_hit = bb_hit_info;
              for(var j: u32 = mesh.first_triangle_index; j < mesh.first_triangle_index + mesh.triangle_count; j = j + 1u){
@@ -321,7 +344,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     pixel_color /= f32(rays_per_pixel);
 
     //DEBUG
-    // pixel_color = pixel_color * 0.5 + 0.5 * vec3<f32>(debug_var, 0, 0);
+    pixel_color = pixel_color * 0.5 + 0.5 * vec3<f32>(debug_var / 3.0, 0, 0);
 
     //Accumulate New Pixel Value
     pixel += pixel_color;
