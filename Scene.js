@@ -4,6 +4,8 @@ import { Material } from './Material.js';
 import { Mesh } from './Meshes/Mesh.js';
 import { vec3, vec4 } from 'gl-matrix';
 import { BoundingBox } from './BoundingBox.js';
+import { Renderable } from './Renderable.js';
+import { Transform } from './Transform.js';
 
 export class Scene {
 
@@ -36,8 +38,19 @@ export class Scene {
         //Bounding Box
         this.bounding_box_data = new ArrayBuffer(0);
 
+        //Renderables
+        this.renderables = [];
+        this.renderable_count = 0;
+        this.renderables_data = new ArrayBuffer(0);
+
         //BVH
+        this.bvhs = [];
         this.bvh_data = new ArrayBuffer(0);
+
+        //Transforms
+        this.transforms = [];
+        this.transform_count = 0;
+        this.trs_data = new ArrayBuffer(0);
         
         //Debug
         this.print = false;
@@ -50,29 +63,41 @@ export class Scene {
             this.spheres_data = new ArrayBuffer(this.spheres_data.byteLength + this.sphere_size);
             this.spheres_count++;
         }
-        if(object instanceof Material){
-            this.materials.push(object);
-            this.materials_data = new ArrayBuffer(this.materials_data.byteLength + Material.size);
-            this.materials_count++;
-        }
-        if(object instanceof Mesh){
+        
+        if(object instanceof Renderable){
+            //Renderable
+            this.renderables.push(object);
+            this.renderable_count++;
+            this.renderables_data = new ArrayBuffer(this.renderables_data.byteLength + Renderable.size);
 
             //Mesh
-            this.meshes.push(object);
-            this.meshes_data = new ArrayBuffer(this.meshes_data.byteLength + Mesh.mesh_size);
-            this.meshes_count++;
-            
-            //Triangles
-            this.triangles_data = new ArrayBuffer(this.triangles_data.byteLength + object.getSize());
-            this.triangle_count += object.triangle_count;
+            if(!this.meshes.includes(object.mesh)){
+                this.meshes.push(object.mesh);
+                this.meshes_data = new ArrayBuffer(this.meshes_data.byteLength + Mesh.mesh_size);
+                this.meshes_count++;
 
-            //Bounding Box
-            this.bounding_box_data = new ArrayBuffer(this.bounding_box_data.byteLength + BoundingBox.size);
+                //BVH
+                this.bvhs.push(object.mesh.bvh);
+                this.bvh_data = new ArrayBuffer(this.bvh_data.byteLength + object.mesh.bvh.getSize());
 
-            //BVH
-            object.bvh.constructBVH(object.triangles); //THis is bad I need to rethink this
-            console.log(object.bvh.getSize());
-            this.bvh_data = new ArrayBuffer(this.bvh_data.byteLength + object.bvh.getSize());
+                //Triangles
+                this.triangle_count += object.mesh.triangle_count;
+                this.triangles_data = new ArrayBuffer(this.triangles_data.byteLength + object.mesh.getSize());
+            }
+
+            //Material
+            if(!this.materials.includes(object.material)){
+                this.materials.push(object.material);
+                this.materials_data = new ArrayBuffer(this.materials_data.byteLength + Material.size);
+                this.materials_count++;
+            }
+
+            //Transform
+            if(!this.transforms.includes(object.transform)){
+                this.transforms.push(object.transform);
+                this.transform_count++;
+            }
+
         }
     }
 
@@ -89,6 +114,10 @@ export class Scene {
 
     setupBuffers(){
         this.setupSphereBuffer();
+        this.setupTransformBuffer();
+        this.setupBVHBuffer();
+        this.setupTriangleBuffer();
+        this.setupRenderableBuffer();
         this.setupMaterialBuffer();
         this.setupMeshBuffer();
         this.has_setup_buffers = true;
@@ -140,48 +169,45 @@ export class Scene {
         });
     }
 
-    setupMeshBuffer(){
-        var triangle_offset = 0;
-        var mesh_offset = 0;
-        var bounding_box_offset = 0;
+    setupRenderableBuffer(){
+        var renderable_offset = 0;
+        this.renderables.forEach(object => {
+            const ObjectValues = new ArrayBuffer(Renderable.size);
+            const ObjectViews = {
+                mesh_index: new Uint32Array(ObjectValues, 0, 1),
+                material_index: new Uint32Array(ObjectValues, 4, 1),
+                transform_index: new Uint32Array(ObjectValues, 8, 1),
+            }
+            ObjectViews.mesh_index[0] = object.mesh_id;
+            ObjectViews.material_index[0] = object.material_id;
+            ObjectViews.transform_index[0] = object.transform_id;
+
+            const objectView = new Uint8Array(ObjectValues);
+            const allObjectView = new Uint8Array(this.renderables_data, renderable_offset * Renderable.size, Renderable.size);
+            allObjectView.set(objectView);
+            renderable_offset++;
+        });
+    }
+
+    setupTransformBuffer(){
+        console.log(this.transform_count);
+        this.trs_data = new Float32Array(this.transform_count * 16);
+        var transform_offset = 0;
+        this.transforms.forEach(transform => {
+            for(var i = 0; i < 16; i++){
+                this.trs_data[16 * transform_offset + i] = transform.TRS.at(i);
+            }
+            transform_offset++;
+        });
+
+        //THis is fucked
+        this.trs_data = new ArrayBuffer(this.trs_data.buffer);
+    }
+
+    setupBVHBuffer(){
         var bvh_offset = 0;
-
-        this.meshes.forEach(mesh => {
-
-            mesh.setup();
-
-            const MeshValues = new ArrayBuffer(Mesh.mesh_size);
-            const MeshViews = {
-                bounding_box_index: new Uint32Array(MeshValues, 0, 1),
-                first_triangle_index: new Uint32Array(MeshValues, 4, 1),
-                triangle_count: new Uint32Array(MeshValues, 8, 1),
-                first_bvh_index: new Uint32Array(MeshValues, 12, 1),
-                bvh_node_count: new Uint32Array(MeshValues, 16, 1),
-            };
-            MeshViews.bounding_box_index[0] = bounding_box_offset;
-            MeshViews.first_triangle_index[0] = triangle_offset;
-            MeshViews.triangle_count[0] = mesh.triangle_count;
-            MeshViews.first_bvh_index[0] = bvh_offset;
-            MeshViews.bvh_node_count[0] = mesh.bvh.node_count;
-            
-            const meshView = new Uint8Array(MeshValues);
-            const allMeshView = new Uint8Array(this.meshes_data, mesh_offset * Mesh.mesh_size, Mesh.mesh_size);
-            allMeshView.set(meshView);
-            mesh_offset++;
-
-            const BoundingBoxValues = new ArrayBuffer(32);
-            const BoundingBoxViews = {
-                min: new Float32Array(BoundingBoxValues, 0, 3),
-                max: new Float32Array(BoundingBoxValues, 16, 3),
-            };
-            BoundingBoxViews.min.set(mesh.bounding_box.min);
-            BoundingBoxViews.max.set(mesh.bounding_box.max);
-            const boundingBoxView = new Uint8Array(BoundingBoxValues);
-            const allBoundingBoxView = new Uint8Array(this.bounding_box_data, bounding_box_offset * BoundingBox.size, BoundingBox.size);
-            allBoundingBoxView.set(boundingBoxView);
-            bounding_box_offset++;
-
-            mesh.bvh.nodes.forEach(node => {
+        this.bvhs.forEach(bvh => {
+            bvh.nodes.forEach(node => {
                 const BVHNodeValues = new ArrayBuffer(48);
                 const BVHNodeViews = {
                     min: new Float32Array(BVHNodeValues, 0, 3),
@@ -201,7 +227,12 @@ export class Scene {
                 allBVHView.set(bvhView);
                 bvh_offset++;
             });
-            
+        });
+    }
+
+    setupTriangleBuffer(){
+        var triangle_offset = 0;
+        this.meshes.forEach(mesh => {
             mesh.triangles.forEach(triangle => {
                 const TriangleValues = new ArrayBuffer(128);
                 const TriangleViews = {
@@ -232,9 +263,33 @@ export class Scene {
                 allTrianglesView.set(triangleView);
                 triangle_offset++;
             });
-        })
+        });
     }
 
+    setupMeshBuffer(){
+        var triangle_offset = 0;
+        var mesh_offset = 0;
+        var bounding_box_offset = 0;
+        var bvh_offset = 0;
+
+        this.meshes.forEach(mesh => {
+            const MeshValues = new ArrayBuffer(Mesh.mesh_size);
+            const MeshViews = {
+                bounding_box_index: new Uint32Array(MeshValues, 0, 1),
+                first_triangle_index: new Uint32Array(MeshValues, 4, 1),
+                triangle_count: new Uint32Array(MeshValues, 8, 1),
+                first_bvh_index: new Uint32Array(MeshValues, 12, 1),
+                bvh_node_count: new Uint32Array(MeshValues, 16, 1),
+            };
+            MeshViews.bounding_box_index[0] = bounding_box_offset;
+            MeshViews.first_triangle_index[0] = triangle_offset;
+            MeshViews.triangle_count[0] = mesh.triangle_count;
+            MeshViews.first_bvh_index[0] = bvh_offset;
+            MeshViews.bvh_node_count[0] = mesh.bvh.node_count;
+        });  
+    }
+
+    //Note to self: I'm not sure how useful an update loop really is for this project. I will keep it for now.
     update(){
         this.parameters_updated = false;
         this.objects.forEach(element => { 

@@ -13,8 +13,9 @@ export class CubeMesh extends Mesh {
         //Triangles
         this.triangles = [];
 
-        this.calculateVertexCoordinates();
-        this.constructTriangles();
+        // this.calculateVertexCoordinates();
+        // this.constructTriangles();
+        this.loadedPromise = this.init();
     }
 
     calculateVertexCoordinates(){

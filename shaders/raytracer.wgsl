@@ -1,5 +1,3 @@
-
-
 struct Ray {
     pos: vec3<f32>, //origin
     min: f32, //distance at which intersection testing begins
@@ -27,11 +25,6 @@ struct Triangle {
     uv_c: vec2<f32>,
 };
 
-struct BoundingBox {
-    min: vec3<f32>,
-    max: vec3<f32>
-}
-
 struct BVHNode {
     min: vec3<f32>,
     max: vec3<f32>,
@@ -40,23 +33,36 @@ struct BVHNode {
     triangle_count: u32,
 }
 
-struct BVH {
-    nodes: array<BVHNode> //Max nodes will need to be increased later
+struct BVHData {
+    nodes: array<BVHNode>
 }
 
 struct Mesh {
-    bounding_box_index: u32,
     first_triangle_index: u32,
     triangle_count: u32,
     first_bvh_index: u32,
-    bvh_node_count: u32,
+    trs_index: u32
 }
 
 struct Scene {
     sphere_count: u32,
-    mesh_count: u32,
+    renderable_count: u32,
     triangle_count: u32,
 };
+
+struct Renderable {
+    mesh_index: u32,
+    trs_index: u32,
+    material_index: u32,
+};
+
+struct RenderableData {
+    renderables: array<Renderable>
+};
+
+struct TRSData {
+    trs: array<mat4x4<f32>>
+}
 
 struct SphereData {
     spheres: array<Sphere>
@@ -74,10 +80,6 @@ struct MeshData {
     meshes: array<Mesh>
 }
 
-struct BoundingBoxData {
-    bounding_boxes: array<BoundingBox>
-}
-
 struct ScatterInfo {
     ray: Ray,
     attenuation: vec3<f32>,
@@ -88,13 +90,70 @@ struct ScatterInfo {
 @group(0) @binding(2) var<uniform> time: Time;
 @group(0) @binding(3) var<uniform> scene: Scene;
 @group(0) @binding(4) var<storage, read> sphere_data: SphereData;
-@group(0) @binding(5) var<storage, read> material_data: MaterialData;
-@group(0) @binding(6) var<storage, read> triangle_data: TriangleData;
-@group(0) @binding(7) var<storage, read> mesh_data: MeshData;
-@group(0) @binding(8) var<storage, read> bounding_box_data: BoundingBoxData;
-@group(0) @binding(9) var<storage, read> bvh_data: BVH;
+@group(0) @binding(5) var<storage, read> renderable_data: RenderableData;
+@group(0) @binding(6) var<storage, read> mesh_data: MeshData;
+@group(0) @binding(7) var<storage, read> triangle_data: TriangleData;
+@group(0) @binding(8) var<storage, read> bvh_data: BVHData;
+@group(0) @binding(9) var<storage, read> trs_data: TRSData;
+@group(0) @binding(10) var<storage, read> material_data: MaterialData;
 
 var<private> debug_var: f32 = 0;
+var<private> debug_var2: f32 = 0;
+var<private> debug_var3: f32 = 0;
+
+fn traverse_bvh(mesh: Mesh, ray: Ray){
+
+    //Create Stack
+    var stack: array<u32,32> = array<u32,32>();
+    var stack_ptr: i32 = 0;
+
+    //Push Root Node
+    stack[stack_ptr] = mesh.first_bvh_index;
+    stack_ptr++;
+
+    var light_dir: vec3<f32> = normalize(vec3<f32>(1.0, 1.0, 0.0));
+
+    //Saftey variable to prevent infinite loop
+    var safety: u32 = 0u;
+    var level: u32 = 0u;
+
+    var closest_hit: HitInfo;
+    closest_hit.hit = false;
+    closest_hit.t = INFINITY;
+
+    while(stack_ptr > 0 && safety < 100u){
+
+        //Get the Node
+        stack_ptr--;
+        var node_index: u32 = stack[stack_ptr];
+        var node: BVHNode = bvh_data.nodes[node_index];
+        var is_leaf: bool = node.triangle_count > 0u;
+
+        if(hit_bvh_node(node, ray).hit == false){
+            continue;
+        }
+
+        if(is_leaf){
+            for(var i: u32 = 0u; i < node.triangle_count; i = i + 1u){
+                var triangle_index: u32 = mesh.first_triangle_index + node.first_triangle_index + i;
+                var triangle: Triangle = triangle_data.triangles[triangle_index];
+                var hit_info: HitInfo = hit_triangle(triangle, ray);
+                if(hit_info.hit && hit_info.t < closest_hit.t){
+                    closest_hit = hit_info;
+                    debug_var = max(0.0, dot(light_dir, hit_info.normal)) + 0.3;
+                }
+            }
+        }
+        else{
+            stack[stack_ptr] = node.left_index;
+            stack_ptr++;
+            stack[stack_ptr] = node.left_index + 1u;
+            stack_ptr++;
+        }
+
+        safety = safety + 1u;
+    }
+}
 
 fn intersect_ray(ray: Ray) -> HitInfo{
     var closest_hit: HitInfo;
@@ -109,29 +168,17 @@ fn intersect_ray(ray: Ray) -> HitInfo{
         }
     }
     
-    for(var i: u32 = 0u; i < scene.mesh_count; i = i + 1u){
-        var mesh: Mesh = mesh_data.meshes[i];
-        for(var j: u32 = mesh.first_bvh_index; j < mesh.first_bvh_index + mesh.bvh_node_count; j = j + 1u){
-            var bvh_node: BVHNode = bvh_data.nodes[j];
-            var hit_info: HitInfo = hit_bvh_node(bvh_node, ray);
-            if(hit_info.hit){
-                //closest_hit = hit_info;
-                debug_var = debug_var + 1.0;
-            }
-        }
-        var bb_hit_info: HitInfo = hit_bounding_box(bounding_box_data.bounding_boxes[mesh.bounding_box_index], ray);
-        if(bb_hit_info.hit){
-            // debug_var = debug_var + 0.25;
-            // bb_hit_info.material = material_data.materials[0];
-            // closest_hit = bb_hit_info;
-             for(var j: u32 = mesh.first_triangle_index; j < mesh.first_triangle_index + mesh.triangle_count; j = j + 1u){
-                var triangle: Triangle = triangle_data.triangles[j];
-                var hit_info: HitInfo = hit_triangle(triangle, ray);
-                if(hit_info.hit && hit_info.t < closest_hit.t){
-                    closest_hit = hit_info;
-                }
-            }
-        }
+    for(var i: u32 = 0u; i < scene.renderable_count; i = i + 1u){
+        var renderable: Renderable = renderable_data.renderables[i];
+        var mesh: Mesh = mesh_data.meshes[renderable.mesh_index];
+        var material: Material = material_data.materials[renderable.material_index];
+        var trs: mat4x4<f32> = trs_data.trs[renderable.trs_index];
+
+        //TODO: Transform Ray
+
+
+        traverse_bvh(mesh, ray);
+
     }
 
     // for(var i: u32 = 0u; i < scene.triangle_count; i = i + 1u){
@@ -278,7 +325,6 @@ fn generatePinholeRay(pixel: vec2<f32>, state_ptr: ptr<function, u32>) -> Ray {
 fn generateThinLensRay(pixel: vec2<f32>, state_ptr: ptr<function, u32>) -> Ray{
     var pinhole_ray: Ray = generatePinholeRay(pixel, state_ptr);
 
-    // let lens_offset: vec2<f32> = random_point_in_circle(state_ptr) * (camera.lens_focal_length / (2.0 * camera.fstop));
     let lens_offset: vec2<f32> = random_vec2(state_ptr);
 
     let theta: f32 = lens_offset.x * 2.0 * PI;
@@ -306,8 +352,6 @@ fn generateThinLensRay(pixel: vec2<f32>, state_ptr: ptr<function, u32>) -> Ray{
 
 @compute @workgroup_size(8,8,1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-
-
 
     //Determine Screen Position and Pixel Seed
     let screen_pos: vec2<u32> = vec2<u32>(u32(global_id.x), u32(global_id.y));
@@ -344,7 +388,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     pixel_color /= f32(rays_per_pixel);
 
     //DEBUG
-    pixel_color = pixel_color * 0.5 + 0.5 * vec3<f32>(debug_var / 3.0, 0, 0);
+    // pixel_color = pixel_color * 0.5 + 0.5 * vec3<f32>(0, 0, debug_var);
+    pixel_color = vec3<f32>(debug_var, debug_var2, 0);
 
     //Accumulate New Pixel Value
     pixel += pixel_color;

@@ -4,6 +4,7 @@ import { Mesh } from "./Mesh.js";
 export class OBJMesh extends Mesh {
     constructor(options){
         super(options);
+
         this.filePath = options.filePath || "";
         
         //Number of vertices
@@ -11,25 +12,21 @@ export class OBJMesh extends Mesh {
         this.height = options.height || 1;
         this.depth = options.depth || 1; 
         
-        // this.calculateVertexCoordinates();
-        // this.constructTriangles();
         this.loadedPromise = this.init();
     }
 
-    async init() {
-        await this.calculateVertices();
-        // this.transformToWorldSpace();
-        // this.setupBoundingBox();
-    }
+    // async init() {
+    //     await this.calculateVertices();
+    // }
 
-    loaded() {
-        return this.loadedPromise;
-    }
+    // loaded() {
+    //     return this.loadedPromise;
+    // }
 
-    async calculateVertices(){
-        await this.calculateVertexCoordinates();
-        this.constructTriangles();
-    }
+    // async calculateVertices(){
+    //     await this.calculateVertexCoordinates();
+    //     this.constructTriangles();
+    // }
 
 
     async calculateVertexCoordinates(){

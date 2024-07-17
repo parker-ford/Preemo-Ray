@@ -132,7 +132,7 @@ export class Renderer {
         this.scene_values = new ArrayBuffer(12);
         this.scene_views = {
             sphere_count: new Uint32Array(this.scene_values, 0, 1),
-            mesh_count: new Uint32Array(this.scene_values, 4, 1),
+            renderable_count: new Uint32Array(this.scene_values, 4, 1),
             triangle_count: new Uint32Array(this.scene_values, 8, 1),
         }
         this.scene_buffer = this.device.createBuffer({
@@ -155,7 +155,7 @@ export class Renderer {
 
         //Triangle Buffer
         this.triangle_buffer = this.device.createBuffer({
-            size: 128 * 1000, //Will def need to increase this at some point
+            size: 128 * 100000, //Will def need to increase this at some point
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
 
@@ -165,15 +165,21 @@ export class Renderer {
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
 
-        //Bounding Box Buffer
-        this.bounding_box_buffer = this.device.createBuffer({
-            size: 32 * 100,
+        //TRS Buffer
+        this.trs_buffer = this.device.createBuffer({
+            size: 64 * 1000,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        
+        //Renderable Buffer
+        this.renderable_buffer = this.device.createBuffer({
+            size: 12 * 1000,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
 
         //BVH Buffer
         this.bvh_buffer = this.device.createBuffer({
-            size: 48 * 1000,
+            size: 48 * 5000,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         })
     }
@@ -278,6 +284,14 @@ export class Renderer {
                         type: 'read-only-storage',
                         hasDynamicOffset: false
                     }
+                },
+                {
+                    binding: 10,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {
+                        type: 'read-only-storage',
+                        hasDynamicOffset: false
+                    }
                 }
             ]
         });
@@ -319,31 +333,37 @@ export class Renderer {
                 {
                     binding: 5,
                     resource: {
-                        buffer: this.material_buffer
+                        buffer: this.renderable_buffer
                     }
                 },
                 {
                     binding: 6,
                     resource: {
-                        buffer: this.triangle_buffer
+                        buffer: this.mesh_buffer
                     }
                 },
                 {
                     binding: 7,
                     resource: {
-                        buffer: this.mesh_buffer
+                        buffer: this.triangle_buffer
                     }
                 },
                 {
                     binding: 8,
                     resource: {
-                        buffer: this.bounding_box_buffer
+                        buffer: this.bvh_buffer
                     }
                 },
                 {
                     binding: 9,
                     resource: {
-                        buffer: this.bvh_buffer
+                        buffer: this.trs_buffer
+                    }
+                },
+                {
+                    binding: 10,
+                    resource: {
+                        buffer: this.material_buffer
                     }
                 }
             ]
@@ -451,35 +471,40 @@ export class Renderer {
 
         if(camera.hasMoved || scene.parameters_updated){
             this.frame_number = 0;
-         }
+        }
+
 
         scene.update();
+
         //Should happen only once. Assumes that scenes will rarely be chaning in real-time. May come back to this later.
         if(scene.has_setup_buffers === false){
             scene.setupBuffers();
+
             //Sphere Data
             this.device.queue.writeBuffer(this.sphere_buffer, 0, scene.spheres_data, 0, scene.spheres_data.byteLength);
             
+            //Renderable Data
+            this.device.queue.writeBuffer(this.renderable_buffer, 0, scene.renderables_data, 0, scene.renderables_data.byteLength);
+
+            //Mesh Data
+            this.device.queue.writeBuffer(this.mesh_buffer, 0, scene.meshes_data, 0, scene.meshes_data.byteLength);
+
             //Triangle Data
             this.device.queue.writeBuffer(this.triangle_buffer, 0, scene.triangles_data, 0, scene.triangles_data.byteLength);
-            
-            //Material Data
-            this.device.queue.writeBuffer(this.material_buffer, 0, scene.materials_data, 0, scene.materials_data.byteLength);
-            
-            //Mesh Data
-            console.log(scene.meshes_data.byteLength)
-            this.device.queue.writeBuffer(this.mesh_buffer, 0, scene.meshes_data, 0, scene.meshes_data.byteLength);
- 
-            //Bounding Box Data
-            this.device.queue.writeBuffer(this.bounding_box_buffer, 0, scene.bounding_box_data, 0, scene.bounding_box_data.byteLength);
 
             //BVH Data
             this.device.queue.writeBuffer(this.bvh_buffer, 0, scene.bvh_data, 0, scene.bvh_data.byteLength);
+            
+            //TRS Data
+            this.device.queue.writeBuffer(this.trs_buffer, 0, scene.trs_data, 0, scene.trs_data.byteLength); 
+
+            //Material Data
+            this.device.queue.writeBuffer(this.material_buffer, 0, scene.materials_data, 0, scene.materials_data.byteLength);
 
             //Scene Data
             this.scene_views.sphere_count[0] = scene.spheres_count;
             this.scene_views.triangle_count[0] = scene.triangle_count;
-            this.scene_views.mesh_count[0] = scene.meshes_count;
+            this.scene_views.renderable_count[0] = scene.renderable_count;
             this.device.queue.writeBuffer(this.scene_buffer, 0, this.scene_values);
         }
 

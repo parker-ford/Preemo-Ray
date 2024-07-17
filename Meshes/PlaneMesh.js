@@ -9,8 +9,9 @@ export class PlaneMesh extends Mesh {
         this.width = options.width || 1;
         this.height = options.height || 1; 
 
-        this.calculateVertexCoordinates();
-        this.constructTriangles();
+        // this.calculateVertexCoordinates();
+        // this.constructTriangles();
+        this.loadedPromise = this.init();
     }
 
     calculateVertexCoordinates(){
@@ -35,21 +36,8 @@ export class PlaneMesh extends Mesh {
 
         for(let i = 0; i < this.width; i++){
             for(let j = 0; j < this.height; j++){
-            
+
                 //Top Triangle
-                // const top_triangle = {};
-                // top_triangle.pos_a = this.vertexCoordinates[j + (i * (this.height + 1))];
-                // top_triangle.pos_b = this.vertexCoordinates[(j + 1) + (i * (this.height + 1))];
-                // top_triangle.pos_c = this.vertexCoordinates[(j + 1) + ((i + 1) * (this.height + 1))];
-
-                // top_triangle.uv_a = this.uvCoordinates[j + (i * (this.height + 1))];
-                // top_triangle.uv_b = this.uvCoordinates[(j + 1) + (i * (this.height + 1))];
-                // top_triangle.uv_c = this.uvCoordinates[(j + 1) + ((i + 1) * (this.height + 1))];
-
-                // top_triangle.normal_a = this.normalCoordinates[j + (i * (this.height + 1))];
-                // top_triangle.normal_b = this.normalCoordinates[(j + 1) + (i * (this.height + 1))];
-                // top_triangle.normal_c = this.normalCoordinates[(j + 1) + ((i + 1) * (this.height + 1))];
-
                 const top_triangle = new Triangle({
                     pos_a: this.vertexCoordinates[j + (i * (this.height + 1))],
                     pos_b: this.vertexCoordinates[(j + 1) + (i * (this.height + 1))],

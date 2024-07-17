@@ -99,30 +99,11 @@ fn hit_triangle(triangle: Triangle, ray: Ray) -> HitInfo {
     hit_info.material = material_data.materials[triangle.material_index];
 
     //Only Show Front Face. TODO: Make this an option
-    if(dot(ray.dir, hit_info.normal) < 0.0){
+    if(dot(ray.dir, hit_info.normal) < 0.0 || true){
         hit_info.front_face = true;
     } else {
         hit_info.front_face = false;
         hit_info.hit = false;
-    }
-
-    return hit_info;
-}
-
-fn hit_bounding_box(bounding_box: BoundingBox, ray: Ray) -> HitInfo {
-    var hit_info: HitInfo;
-
-    var t_lower: vec3<f32> = (bounding_box.min - ray.pos) * ray.inv_dir; //Need to inverse?
-    var t_upper: vec3<f32> = (bounding_box.max - ray.pos) * ray.inv_dir;
-
-    var t_mins: vec4<f32> = vec4<f32>(min(t_lower, t_upper), ray.min);
-    var t_maxes: vec4<f32> = vec4<f32>(max(t_lower, t_upper), ray.max);
-
-    var t_box_min: f32 = max_component_4(t_mins);
-    var t_box_max: f32 = min_component_4(t_maxes);
-
-    if(t_box_min <= t_box_max){
-        hit_info.hit = true;
     }
 
     return hit_info;
