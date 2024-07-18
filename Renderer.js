@@ -139,7 +139,13 @@ export class Renderer {
             label: 'scene_buffer',
             size: 12,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-        })
+        });
+
+        //DEBUG Buffer
+        this.debug_buffer = this.device.createBuffer({
+            size: 64,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
 
         //Sphere Buffer
         this.sphere_buffer = this.device.createBuffer({
@@ -241,8 +247,7 @@ export class Renderer {
                     binding: 4,
                     visibility: GPUShaderStage.COMPUTE,
                     buffer: {
-                        type: 'read-only-storage',
-                        hasDynamicOffset: false
+                        type: 'uniform'
                     }
                 },
                 {
@@ -287,6 +292,14 @@ export class Renderer {
                 },
                 {
                     binding: 10,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {
+                        type: 'read-only-storage',
+                        hasDynamicOffset: false
+                    }
+                },
+                {
+                    binding: 11,
                     visibility: GPUShaderStage.COMPUTE,
                     buffer: {
                         type: 'read-only-storage',
@@ -327,41 +340,47 @@ export class Renderer {
                 {
                     binding: 4,
                     resource: {
-                        buffer: this.sphere_buffer
+                        buffer: this.debug_buffer
                     }
                 },
                 {
                     binding: 5,
                     resource: {
-                        buffer: this.renderable_buffer
+                        buffer: this.sphere_buffer
                     }
                 },
                 {
                     binding: 6,
                     resource: {
-                        buffer: this.mesh_buffer
+                        buffer: this.renderable_buffer
                     }
                 },
                 {
                     binding: 7,
                     resource: {
-                        buffer: this.triangle_buffer
+                        buffer: this.mesh_buffer
                     }
                 },
                 {
                     binding: 8,
                     resource: {
-                        buffer: this.bvh_buffer
+                        buffer: this.triangle_buffer
                     }
                 },
                 {
                     binding: 9,
                     resource: {
-                        buffer: this.trs_buffer
+                        buffer: this.bvh_buffer
                     }
                 },
                 {
                     binding: 10,
+                    resource: {
+                        buffer: this.trs_buffer
+                    }
+                },
+                {
+                    binding: 11,
                     resource: {
                         buffer: this.material_buffer
                     }
@@ -515,6 +534,9 @@ export class Renderer {
         this.time_views.elapsed_time[0] = Time.elapsedTime;
         this.time_views.frame_number[0] = this.frame_number;
         this.device.queue.writeBuffer(this.time_buffer, 0, this.time_values);
+
+        //DEBUG Data
+        this.device.queue.writeBuffer(this.debug_buffer, 0, scene.debug_data);
 
         const commandEncoder = this.device.createCommandEncoder();
 

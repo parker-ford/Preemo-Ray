@@ -13,6 +13,7 @@ export class BVHNode {
         this.child_left_node = options.child_left_node || 0; //Right index is always left index + 1
         this.first_triangle_index = options.first_triangle_index || 0;
         this.triangle_count = options.triangle_count || 0;
+        this.depth = options.depth || 0;
     }
 
     updateBounds(){
@@ -37,6 +38,16 @@ export class BVHNode {
 
     subdivide(){
         if(this.triangle_count <= 2){
+            this.bvh.leaf_count++;
+
+            this.bvh.min_leaf_depth = Math.min(this.bvh.min_leaf_depth, this.depth);
+            this.bvh.max_leaf_depth = Math.max(this.bvh.max_leaf_depth, this.depth);
+            this.bvh.mean_leaf_depth += this.depth;
+
+            this.bvh.min_leaf_triangles = Math.min(this.bvh.min_leaf_triangles, this.triangle_count);
+            this.bvh.max_leaf_triangles = Math.max(this.bvh.max_leaf_triangles, this.triangle_count);
+            this.bvh.mean_leaf_triangles += this.triangle_count;
+
             return;
         }
 
@@ -67,6 +78,15 @@ export class BVHNode {
         //Create child nodes for each half
         let left_count = i - this.first_triangle_index;
         if(left_count == 0 || left_count == this.triangle_count){
+            this.bvh.leaf_count++;
+            
+            this.bvh.min_leaf_depth = Math.min(this.bvh.min_leaf_depth, this.depth);
+            this.bvh.max_leaf_depth = Math.max(this.bvh.max_leaf_depth, this.depth);
+            this.bvh.mean_leaf_depth += this.depth;
+
+            this.bvh.min_leaf_triangles = Math.min(this.bvh.min_leaf_triangles, this.triangle_count);
+            this.bvh.max_leaf_triangles = Math.max(this.bvh.max_leaf_triangles, this.triangle_count);
+            this.bvh.mean_leaf_triangles += this.triangle_count;
             return;
         }
 
@@ -77,7 +97,8 @@ export class BVHNode {
         let left_node = new BVHNode({
             bvh: this.bvh,
             first_triangle_index: this.first_triangle_index,
-            triangle_count: left_count
+            triangle_count: left_count,
+            depth: this.depth + 1
         });
         this.bvh.nodes.push(left_node);
         
@@ -87,7 +108,8 @@ export class BVHNode {
         let right_node = new BVHNode({
             bvh: this.bvh,
             first_triangle_index: i,
-            triangle_count: this.triangle_count - left_count
+            triangle_count: this.triangle_count - left_count,
+            depth: this.depth + 1
         });
         this.bvh.nodes.push(right_node);
 

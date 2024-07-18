@@ -52,8 +52,29 @@ export class Scene {
         this.transform_count = 0;
         this.trs_data = new ArrayBuffer(0);
         
-        //Debug
+        //DEBUG
         this.print = false;
+        this.debug_data = new ArrayBuffer(64);
+        this.debug_data_views = {
+            DEBUG_0: new Float32Array(this.debug_data, 0, 1),
+            DEBUG_1: new Float32Array(this.debug_data, 4, 1),
+            DEBUG_2: new Float32Array(this.debug_data, 8, 1),
+            DEBUG_3: new Float32Array(this.debug_data, 12, 1),
+            DEBUG_4: new Float32Array(this.debug_data, 16, 1),
+            DEBUG_5: new Float32Array(this.debug_data, 20, 1),
+            DEBUG_6: new Float32Array(this.debug_data, 24, 1),
+            DEBUG_7: new Float32Array(this.debug_data, 28, 1),
+            DEBUG_8: new Float32Array(this.debug_data, 32, 1),
+            DEBUG_9: new Float32Array(this.debug_data, 36, 1),
+            DEBUG_10: new Float32Array(this.debug_data, 40, 1),
+            DEBUG_11: new Float32Array(this.debug_data, 44, 1),
+            DEBUG_12: new Float32Array(this.debug_data, 48, 1),
+            DEBUG_13: new Float32Array(this.debug_data, 52, 1),
+            DEBUG_14: new Float32Array(this.debug_data, 56, 1),
+            DEBUG_15: new Float32Array(this.debug_data, 60, 1),
+        };
+
+
     }
 
     add(object) {

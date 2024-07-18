@@ -127,3 +127,49 @@ fn hit_bvh_node(bvh_node: BVHNode, ray: Ray) -> HitInfo {
 
     return hit_info;
 }
+
+fn DEBUG_hit_bvh_node(bvh_node: BVHNode, ray: Ray) -> HitInfo {
+   var hit_info: HitInfo;
+    hit_info.hit = false;
+    hit_info.t = INFINITY;
+
+    var t_lower: vec3<f32> = (bvh_node.min - ray.pos) * ray.inv_dir;
+    var t_upper: vec3<f32> = (bvh_node.max - ray.pos) * ray.inv_dir;
+
+    var t_mins: vec4<f32> = vec4<f32>(min(t_lower, t_upper), ray.min);
+    var t_maxes: vec4<f32> = vec4<f32>(max(t_lower, t_upper), ray.max);
+
+    var t_box_min: f32 = max_component_4(t_mins);
+    var t_box_max: f32 = min_component_4(t_maxes);
+
+    if(t_box_min <= t_box_max) {
+        var epsilon: f32 = 0.01; // Small value to account for floating-point precision
+
+        // Check entry point (t_box_min)
+        var entry_point: vec3<f32> = ray.pos + ray.dir * t_box_min;
+        var on_min_edge_entry: vec3<bool> = abs(entry_point - bvh_node.min) < vec3<f32>(epsilon);
+        var on_max_edge_entry: vec3<bool> = abs(entry_point - bvh_node.max) < vec3<f32>(epsilon);
+        var edge_count_entry: i32 = i32(on_min_edge_entry.x) + i32(on_min_edge_entry.y) + i32(on_min_edge_entry.z) +
+                                    i32(on_max_edge_entry.x) + i32(on_max_edge_entry.y) + i32(on_max_edge_entry.z);
+
+        if (edge_count_entry >= 2) {
+            hit_info.hit = true;
+            hit_info.t = t_box_min;
+            return hit_info;
+        }
+
+        // Check exit point (t_box_max)
+        var exit_point: vec3<f32> = ray.pos + ray.dir * t_box_max;
+        var on_min_edge_exit: vec3<bool> = abs(exit_point - bvh_node.min) < vec3<f32>(epsilon);
+        var on_max_edge_exit: vec3<bool> = abs(exit_point - bvh_node.max) < vec3<f32>(epsilon);
+        var edge_count_exit: i32 = i32(on_min_edge_exit.x) + i32(on_min_edge_exit.y) + i32(on_min_edge_exit.z) +
+                                   i32(on_max_edge_exit.x) + i32(on_max_edge_exit.y) + i32(on_max_edge_exit.z);
+
+        if (edge_count_exit >= 2) {
+            hit_info.hit = true;
+            hit_info.t = t_box_max;
+        }
+    }
+
+    return hit_info;
+}

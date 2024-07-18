@@ -85,49 +85,62 @@ struct ScatterInfo {
     attenuation: vec3<f32>,
 }
 
+struct Debug{
+  DEBUG_0: u32, DEBUG_1: f32,DEBUG_2: f32,DEBUG_3: f32,DEBUG_4: f32,DEBUG_5: f32,DEBUG_6: f32,DEBUG_7: f32,DEBUG_8: f32,DEBUG_9: f32,DEBUG_10: f32,DEBUG_11: f32,DEBUG_12: f32,DEBUG_13: f32,DEBUG_14: f32,DEBUG_15: f32,
+}
+
 @group(0) @binding(0) var<storage, read_write> image_buffer: array<vec3f>;
 @group(0) @binding(1) var<uniform> camera: Camera;
 @group(0) @binding(2) var<uniform> time: Time;
 @group(0) @binding(3) var<uniform> scene: Scene;
-@group(0) @binding(4) var<storage, read> sphere_data: SphereData;
-@group(0) @binding(5) var<storage, read> renderable_data: RenderableData;
-@group(0) @binding(6) var<storage, read> mesh_data: MeshData;
-@group(0) @binding(7) var<storage, read> triangle_data: TriangleData;
-@group(0) @binding(8) var<storage, read> bvh_data: BVHData;
-@group(0) @binding(9) var<storage, read> trs_data: TRSData;
-@group(0) @binding(10) var<storage, read> material_data: MaterialData;
+@group(0) @binding(4) var<uniform> DEBUG: Debug; 
+@group(0) @binding(5) var<storage, read> sphere_data: SphereData;
+@group(0) @binding(6) var<storage, read> renderable_data: RenderableData;
+@group(0) @binding(7) var<storage, read> mesh_data: MeshData;
+@group(0) @binding(8) var<storage, read> triangle_data: TriangleData;
+@group(0) @binding(9) var<storage, read> bvh_data: BVHData;
+@group(0) @binding(10) var<storage, read> trs_data: TRSData;
+@group(0) @binding(11) var<storage, read> material_data: MaterialData;
+
 
 var<private> debug_var: f32 = 0;
 var<private> debug_var2: f32 = 0;
 var<private> debug_var3: f32 = 0;
+var<private> debug_vec: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
 
-fn traverse_bvh(mesh: Mesh, ray: Ray){
+fn traverse_bvh(mesh: Mesh, ray: Ray) -> HitInfo{
 
     //Create Stack
-    var stack: array<u32,32> = array<u32,32>();
+    var stack: array<vec2<u32>,32> = array<vec2<u32>,32>();
     var stack_ptr: i32 = 0;
 
     //Push Root Node
-    stack[stack_ptr] = mesh.first_bvh_index;
+    stack[stack_ptr] = vec2<u32>(mesh.first_bvh_index, 0u);
     stack_ptr++;
 
     var light_dir: vec3<f32> = normalize(vec3<f32>(1.0, 1.0, 0.0));
 
     //Saftey variable to prevent infinite loop
     var safety: u32 = 0u;
-    var level: u32 = 0u;
 
     var closest_hit: HitInfo;
     closest_hit.hit = false;
     closest_hit.t = INFINITY;
 
+    var debug_hit: HitInfo;
+    debug_hit.hit = false;
+    debug_hit.t = INFINITY;
+
     while(stack_ptr > 0 && safety < 100u){
 
         //Get the Node
         stack_ptr--;
-        var node_index: u32 = stack[stack_ptr];
+        var node_data: vec2<u32> = stack[stack_ptr];
+        var node_index: u32 = node_data.x;
+        var current_level: u32 = node_data.y;
         var node: BVHNode = bvh_data.nodes[node_index];
         var is_leaf: bool = node.triangle_count > 0u;
+
 
         if(hit_bvh_node(node, ray).hit == false){
             continue;
@@ -140,19 +153,50 @@ fn traverse_bvh(mesh: Mesh, ray: Ray){
                 var hit_info: HitInfo = hit_triangle(triangle, ray);
                 if(hit_info.hit && hit_info.t < closest_hit.t){
                     closest_hit = hit_info;
-                    debug_var = max(0.0, dot(light_dir, hit_info.normal)) + 0.3;
                 }
             }
         }
         else{
-            stack[stack_ptr] = node.left_index;
+            // Push child nodes with incremented level
+            stack[stack_ptr] = vec2<u32>(node.left_index, current_level + 1u);
             stack_ptr++;
-            stack[stack_ptr] = node.left_index + 1u;
+            stack[stack_ptr] = vec2<u32>(node.left_index + 1u, current_level + 1u);
             stack_ptr++;
         }
 
+        //DEBUG
+        if(DEBUG.DEBUG_0 != 0){
+            if(current_level == u32(DEBUG.DEBUG_1)){
+                debug_hit = DEBUG_hit_bvh_node(node, ray);
+                var level_seed = current_level;
+                debug_vec = normalize(random_vec3(&level_seed));
+                if(debug_hit.hit){
+                    debug_var2 = 1.0;
+                }
+            }
+            else if(current_level < u32(DEBUG.DEBUG_1)){
+                debug_hit = DEBUG_hit_bvh_node(node, ray);
+                var level_seed = current_level;
+                debug_vec = normalize(random_vec3(&level_seed));
+                if(debug_hit.hit){
+                    debug_var2 = 0.25;
+                }
+            }
+        }
+        
+
         safety = safety + 1u;
     }
+
+    if(DEBUG.DEBUG_0 != 0){
+        if(debug_var2 > 0.0){
+            if(debug_hit.t > closest_hit.t){
+                debug_var2 = 0.0;
+            }
+        }
+    }
+
+    return closest_hit;
 }
 
 fn intersect_ray(ray: Ray) -> HitInfo{
@@ -177,17 +221,9 @@ fn intersect_ray(ray: Ray) -> HitInfo{
         //TODO: Transform Ray
 
 
-        traverse_bvh(mesh, ray);
+        closest_hit = traverse_bvh(mesh, ray);
 
     }
-
-    // for(var i: u32 = 0u; i < scene.triangle_count; i = i + 1u){
-    //     var triangle: Triangle = triangle_data.triangles[i];
-    //     var hit_info: HitInfo = hit_triangle(triangle, ray);
-    //     if(hit_info.hit && hit_info.t < closest_hit.t){
-    //         closest_hit = hit_info;
-    //     }
-    // }
 
     return closest_hit;
 }
@@ -260,7 +296,7 @@ fn scatter(ray: Ray, hit_info: HitInfo, state_ptr: ptr<function, u32>) -> Scatte
 fn trace_ray(ray: Ray, state_ptr: ptr<function, u32>) -> vec3<f32> {
 
     var current_ray: Ray = ray;
-    let max_bounces: u32 = 10u;
+    let max_bounces: u32 = 0u;
     var ray_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
     var incoming_light: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
 
@@ -388,8 +424,13 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     pixel_color /= f32(rays_per_pixel);
 
     //DEBUG
-    // pixel_color = pixel_color * 0.5 + 0.5 * vec3<f32>(0, 0, debug_var);
-    pixel_color = vec3<f32>(debug_var, debug_var2, 0);
+    if(DEBUG.DEBUG_0 != 0){
+        // if(length(debug) > 0.0){
+            pixel_color = debug_var2 * debug_vec + (1.0 - debug_var2) * pixel_color;
+        // }
+    // pixel_color = vec3<f32>(debug_var, 0, 0);
+    // pixel_color = debug_vec;
+    }
 
     //Accumulate New Pixel Value
     pixel += pixel_color;
