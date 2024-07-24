@@ -174,16 +174,7 @@ fn traverse_bvh(mesh: Mesh, ray: Ray) -> HitInfo{
                     debug_var2 = 1.0;
                 }
             }
-            else if(current_level < u32(DEBUG.DEBUG_1)){
-                debug_hit = DEBUG_hit_bvh_node(node, ray);
-                var level_seed = current_level;
-                debug_vec = normalize(random_vec3(&level_seed));
-                if(debug_hit.hit){
-                    debug_var2 = 0.25;
-                }
-            }
         }
-        
 
         safety = safety + 1u;
     }

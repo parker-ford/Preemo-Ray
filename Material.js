@@ -1,7 +1,8 @@
 import { vec3 } from "gl-matrix";
 
-export class Material {
+export default class Material {
     static count = 0;
+    
     static size = 48;
 
     static TYPES = {
@@ -11,13 +12,22 @@ export class Material {
         EMISSIVE: 3,
     }
 
-    constructor(options) {
-        this.id = Material.count++;
-        this.metalic_fuzz = options.metalic_fuzz ? options.metalic_fuzz : 0;
-        this.attenuation = options.attenuation ? options.attenuation : vec3.fromValues(1, 0, 1);
-        this.material_flag = options.material_flag ? options.material_flag : Material.TYPES.LAMBERTIAN;
-        this.refractive_index = options.refractive_index ? options.refractive_index : 1.0;
-        this.emissive_color = options.emissive_color ? options.emissive_color : vec3.fromValues(0, 0, 0);
-        this.emissive_strength = options.emissive_strength ? options.emissive_strength : 0;
+    constructor({
+        metalic_fuzz = 0,
+        attenuation = vec3.fromValues(1, 0, 1),
+        material_flag = Material.TYPES.LAMBERTIAN,
+        refractive_index = 1.0,
+        emissive_color = vec3.fromValues(0, 0, 0),
+        emissive_strength = 0
+
+    }) {
+        this.id = Material.count;
+        Material.count += 1;
+        this.metalic_fuzz = metalic_fuzz;
+        this.attenuation = attenuation;
+        this.material_flag = material_flag;
+        this.refractive_index = refractive_index;
+        this.emissive_color = emissive_color;
+        this.emissive_strength = emissive_strength;
     }
 }

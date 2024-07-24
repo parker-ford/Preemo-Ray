@@ -1,74 +1,96 @@
-import { Triangle } from "../Triangle.js";
-import { Mesh } from "./Mesh.js";
+import Triangle from '../Triangle';
+import Mesh from './Mesh';
 
-export class PlaneMesh extends Mesh {
-    constructor(options){
-        super(options);
+/**
+ * Class representing a plane mesh, extending the abstract Mesh class.
+ * @extends Mesh
+ */
+export default class PlaneMesh extends Mesh {
+	/**
+	 * Create a PlaneMesh.
+	 * @param {Object} options - The options for creating the plane mesh.
+	 * @param {number} [options.width=1] - The number of segments along the width of the plane.
+	 * @param {number} [options.height=1] - The number of segments along the height of the plane.
+	 */
+	constructor({ width = 1, height = 1 }) {
+		super();
 
-        //Number of vertices
-        this.width = options.width || 1;
-        this.height = options.height || 1; 
+		/**
+		 * The number of segments along the width of the plane.
+		 * @type {number}
+		 */
+		this.width = width;
 
-        // this.calculateVertexCoordinates();
-        // this.constructTriangles();
-        this.loadedPromise = this.init();
-    }
+		/**
+		 * The number of segments along the height of the plane.
+		 * @type {number}
+		 */
+		this.height = height;
 
-    calculateVertexCoordinates(){
-        this.vertexCoordinates = [];
-        this.uvCoordinates = [];
-        this.normalCoordinates = [];
-        const widthInterval = 1 / this.width;
-        const heightInterval = 1 / this.height;
-        for(let i = 0; i < this.width + 1; i++){
-            for(let j = 0; j < this.height + 1; j++){
-                this.vertexCoordinates.push([ -0.5 + i * widthInterval, -0.5 + j * heightInterval, 0]);
-                this.uvCoordinates.push([i * widthInterval, j * heightInterval]);
-                this.normalCoordinates.push([0, 0, -1]);
-            }
-        }
-    }
+		/**
+		 * Promise that resolves when the mesh is loaded.
+		 * @type {Promise<void>}
+		 */
+		this.loadedPromise = this.init();
+	}
 
-    constructTriangles(){
-        this.triangleCoordinates = [];
-        this.uvs = [];
-        this.normals = [];
+	/**
+	 * Calculate vertex coordinates, UV coordinates, and normal vectors for the plane.
+	 * @override
+	 * @returns {Promise<void>}
+	 */
+	calculateVertexCoordinates() {
+		const widthInterval = 1 / this.width;
+		const heightInterval = 1 / this.height;
+		for (let i = 0; i < this.width + 1; i += 1) {
+			for (let j = 0; j < this.height + 1; j += 1) {
+				this.vertex_positions.push([-0.5 + i * widthInterval, -0.5 + j * heightInterval, 0]);
+				this.vertex_uv_coordinates.push([i * widthInterval, j * heightInterval]);
+				this.vertex_normals.push([0, 0, -1]);
+			}
+		}
 
-        for(let i = 0; i < this.width; i++){
-            for(let j = 0; j < this.height; j++){
+		return Promise.resolve();
+	}
 
-                //Top Triangle
-                const top_triangle = new Triangle({
-                    pos_a: this.vertexCoordinates[j + (i * (this.height + 1))],
-                    pos_b: this.vertexCoordinates[(j + 1) + (i * (this.height + 1))],
-                    pos_c: this.vertexCoordinates[(j + 1) + ((i + 1) * (this.height + 1))],
-                    uv_a: this.uvCoordinates[j + (i * (this.height + 1))],
-                    uv_b: this.uvCoordinates[(j + 1) + (i * (this.height + 1))],
-                    uv_c: this.uvCoordinates[(j + 1) + ((i + 1) * (this.height + 1))],
-                    normal_a: this.normalCoordinates[j + (i * (this.height + 1))],
-                    normal_b: this.normalCoordinates[(j + 1) + (i * (this.height + 1))],
-                    normal_c: this.normalCoordinates[(j + 1) + ((i + 1) * (this.height + 1))],
-                });
+	/**
+	 * Construct triangles for the plane mesh.
+	 * @override
+	 */
+	constructTriangles() {
+		for (let i = 0; i < this.width; i += 1) {
+			for (let j = 0; j < this.height; j += 1) {
+				// Top Triangle
+				const top_triangle = new Triangle({
+					pos_a: this.vertex_positions[j + i * (this.height + 1)],
+					pos_b: this.vertex_positions[j + 1 + i * (this.height + 1)],
+					pos_c: this.vertex_positions[j + 1 + (i + 1) * (this.height + 1)],
+					uv_a: this.vertex_uv_coordinates[j + i * (this.height + 1)],
+					uv_b: this.vertex_uv_coordinates[j + 1 + i * (this.height + 1)],
+					uv_c: this.vertex_uv_coordinates[j + 1 + (i + 1) * (this.height + 1)],
+					normal_a: this.vertex_normals[j + i * (this.height + 1)],
+					normal_b: this.vertex_normals[j + 1 + i * (this.height + 1)],
+					normal_c: this.vertex_normals[j + 1 + (i + 1) * (this.height + 1)]
+				});
 
+				// Bottom Triangle
+				const bottom_triangle = new Triangle({
+					pos_a: this.vertex_positions[j + 1 + (i + 1) * (this.height + 1)],
+					pos_b: this.vertex_positions[j + (i + 1) * (this.height + 1)],
+					pos_c: this.vertex_positions[j + i * (this.height + 1)],
+					uv_a: this.vertex_uv_coordinates[j + 1 + (i + 1) * (this.height + 1)],
+					uv_b: this.vertex_uv_coordinates[j + (i + 1) * (this.height + 1)],
+					uv_c: this.vertex_uv_coordinates[j + i * (this.height + 1)],
+					normal_a: this.vertex_normals[j + 1 + (i + 1) * (this.height + 1)],
+					normal_b: this.vertex_normals[j + (i + 1) * (this.height + 1)],
+					normal_c: this.vertex_normals[j + i * (this.height + 1)]
+				});
 
-                //Bottom Triangle
-                const bottom_triangle = new Triangle({
-                    pos_a: this.vertexCoordinates[(j + 1) + ((i + 1) * (this.height + 1))],
-                    pos_b: this.vertexCoordinates[j + ((i + 1) * (this.height + 1))],
-                    pos_c: this.vertexCoordinates[j + (i * (this.height + 1))],
-                    uv_a: this.uvCoordinates[(j + 1) + ((i + 1) * (this.height + 1))],
-                    uv_b: this.uvCoordinates[j + ((i + 1) * (this.height + 1))],
-                    uv_c: this.uvCoordinates[j + (i * (this.height + 1))],
-                    normal_a: this.normalCoordinates[(j + 1) + ((i + 1) * (this.height + 1))],
-                    normal_b: this.normalCoordinates[j + ((i + 1) * (this.height + 1))],
-                    normal_c: this.normalCoordinates[j + (i * (this.height + 1))],
-                });
-
-                //Push the triangles
-                this.triangles.push(top_triangle);
-                this.triangles.push(bottom_triangle);
-                this.triangle_count += 2;
-            }
-        }
-    }
+				// Push the triangles
+				this.triangles.push(top_triangle);
+				this.triangles.push(bottom_triangle);
+				this.triangle_count += 2;
+			}
+		}
+	}
 }
