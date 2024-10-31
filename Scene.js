@@ -1,11 +1,8 @@
 
-import { Sphere } from './Sphere.js';
-import { Material } from './Material.js';
-import { Mesh } from './Meshes/Mesh.js';
-import { vec3, vec4 } from 'gl-matrix';
-import { BoundingBox } from './BoundingBox.js';
-import { Renderable } from './Renderable.js';
-import { Transform } from './Transform.js';
+import { Sphere } from './Sphere';
+import { Material } from './Material';
+import { Mesh } from './Meshes/Mesh';
+import { Renderable } from './Renderable';
 
 export class Scene {
 

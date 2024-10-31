@@ -1,4 +1,4 @@
-export class Sphere {
+export default class Sphere {
     constructor(options) {
         this.radius = options.radius;
         this.position = options.position;
