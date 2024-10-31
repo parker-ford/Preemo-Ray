@@ -1,6 +1,6 @@
 // eslint-disable-next-line no-unused-vars
 import { vec2, vec3 } from 'gl-matrix';
-import { BVH } from '../BVH';
+import BVH from '../BVH';
 import Triangle from '../Triangle';
 
 /**
