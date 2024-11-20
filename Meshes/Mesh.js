@@ -1,13 +1,13 @@
 // eslint-disable-next-line no-unused-vars
 import { vec2, vec3 } from 'gl-matrix';
-import BVH from '../BVH';
-import Triangle from '../Triangle';
+import { BVH } from '../BVH';
+import { Triangle } from '../Triangle';
 
 /**
  * Abstract class to create a mesh object.
  * @abstract
  */
-export default class Mesh {
+export class Mesh {
 	/**
 	 * Number of bytes per mesh struct in mesh buffer.
 	 * @type {number}

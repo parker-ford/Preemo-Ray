@@ -1,11 +1,11 @@
 // eslint-disable-next-line no-unused-vars
-import Triangle from './Triangle';
-import BVHNode from './BVHNode';
+import { Triangle } from './Triangle';
+import { BVHNode } from './BVHNode';
 
 /**
  * Class representing a Bounding Volume Hierarchy.
  */
-export default class BVH {
+export class BVH {
 	/**
 	 * Create a new BVH.
 	 */

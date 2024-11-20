@@ -1,11 +1,11 @@
-import Triangle from '../Triangle';
-import Mesh from './Mesh';
+import { Triangle } from '../Triangle';
+import { Mesh } from './Mesh';
 
 /**
  * Class representing a mesh loaded from an OBJ file, extending the abstract Mesh class.
  * @extends Mesh
  */
-export default class OBJMesh extends Mesh {
+export class OBJMesh extends Mesh {
 	/**
 	 * Create an OBJMesh.
 	 * @param {Object} options - The options for creating the OBJ mesh.

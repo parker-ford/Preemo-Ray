@@ -243,8 +243,6 @@ fn scatter(ray: Ray, hit_info: HitInfo, state_ptr: ptr<function, u32>) -> Scatte
             break;
         }
         case MATERIAL_DIELECTRIC: {
-
-
             var ri: f32 = 0;
             if(hit_info.front_face){
                 ri = 1.0 / hit_info.material.refractive_index;

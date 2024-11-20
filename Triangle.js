@@ -3,7 +3,7 @@ import { vec2, vec3 } from 'gl-matrix';
 /**
  * Class Representing a Triangle
  */
-export default class Triangle {
+export class Triangle {
 	/**
 	 * Number of bytes per triangle struct in triangle buffer.
 	 * @type {number}

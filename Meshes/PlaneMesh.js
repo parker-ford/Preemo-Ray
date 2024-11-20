@@ -1,11 +1,11 @@
-import Triangle from '../Triangle';
-import Mesh from './Mesh';
+import { Triangle } from '../Triangle';
+import { Mesh } from './Mesh';
 
 /**
  * Class representing a plane mesh, extending the abstract Mesh class.
  * @extends Mesh
  */
-export default class PlaneMesh extends Mesh {
+export class PlaneMesh extends Mesh {
 	/**
 	 * Create a PlaneMesh.
 	 * @param {Object} options - The options for creating the plane mesh.

@@ -1,6 +1,6 @@
-import Sphere from './Sphere';
-import Material from './Material';
-import Mesh from './Meshes/Mesh';
+import { Sphere } from './Sphere';
+import { Material } from './Material';
+import { Mesh } from './Meshes/Mesh';
 import { Renderable } from './Renderable';
 
 export class Scene {

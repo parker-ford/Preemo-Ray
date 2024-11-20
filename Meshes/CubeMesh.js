@@ -1,11 +1,11 @@
-import Triangle from '../Triangle';
-import Mesh from './Mesh';
+import { Triangle } from '../Triangle';
+import { Mesh } from './Mesh';
 
 /**
  * Class representing a cube mesh, extending the abstract Mesh class.
  * @extends Mesh
  */
-export default class CubeMesh extends Mesh {
+export class CubeMesh extends Mesh {
 	/**
 	 * Create a CubeMesh.
 	 * @param {Object} options - The options for creating the cube mesh.

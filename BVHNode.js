@@ -1,6 +1,6 @@
 import { vec3 } from 'gl-matrix';
 
-export default class BVHNode {
+export class BVHNode {
 	static size = 48;
 
 	constructor(options) {
